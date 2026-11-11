@@ -56,11 +56,31 @@ fetch_file "${ALARM_ROOTFS_SIG_URL}" "${ROOTFS_SIGNATURE}"
 GNUPGHOME="${CACHE_DIR}/gnupg-alarm"
 export GNUPGHOME
 install -d -m 0700 "${GNUPGHOME}"
-if ! gpg --batch --list-keys "${ALARM_BUILD_KEY_FINGERPRINT}" >/dev/null 2>&1; then
-  log "从 ${ALARM_KEYSERVER} 获取 ALARM 构建系统公钥"
-  gpg --batch --keyserver "${ALARM_KEYSERVER}" \
-    --keyserver-options timeout=30 --recv-keys "${ALARM_BUILD_KEY_FINGERPRINT}"
-fi
+fetch_alarm_key() {
+  local attempt armor="${CACHE_DIR}/archlinuxarm-build-key.asc"
+  if gpg --batch --list-keys "${ALARM_BUILD_KEY_FINGERPRINT}" >/dev/null 2>&1; then
+    return 0
+  fi
+  for attempt in 1 2 3; do
+    log "从 ${ALARM_KEYSERVER} 获取 ALARM 构建系统公钥（第 ${attempt} 次）"
+    if gpg --batch --keyserver "${ALARM_KEYSERVER}" \
+        --keyserver-options timeout=30 --recv-keys "${ALARM_BUILD_KEY_FINGERPRINT}" \
+        >/dev/null 2>&1; then
+      return 0
+    fi
+    # HKP 客户端/DNS 异常时回退到 keyserver 的 HTTPS 接口；导入后仍强制核对完整指纹。
+    log "HKP 获取失败，改用 HTTPS keyserver 接口"
+    if curl --fail --silent --location --retry 2 --output "${armor}" \
+        "https://keyserver.ubuntu.com/pks/lookup?op=get&search=0x${ALARM_BUILD_KEY_FINGERPRINT}" \
+        && gpg --batch --import "${armor}" >/dev/null 2>&1 \
+        && gpg --batch --list-keys "${ALARM_BUILD_KEY_FINGERPRINT}" >/dev/null 2>&1; then
+      return 0
+    fi
+    sleep 5
+  done
+  die "无法获取或导入 ALARM 构建系统公钥"
+}
+fetch_alarm_key
 fingerprints="$(gpg --batch --with-colons --fingerprint "${ALARM_BUILD_KEY_FINGERPRINT}" | awk -F: '$1 == "fpr" {print $10}')"
 grep -Fxq "${ALARM_BUILD_KEY_FINGERPRINT}" <<<"${fingerprints}" || die "ALARM 公钥指纹不匹配"
 

@@ -1,4 +1,5 @@
 # Arch Linux ARM rolling package层。最终精确版本会写入构建产物 packages.txt。
+archlinuxarm-keyring
 base
 bash-completion
 ca-certificates

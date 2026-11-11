@@ -63,6 +63,9 @@ mapfile -t packages </root/live-packages
 
 pacman-key --init
 pacman-key --populate archlinuxarm
+# 先升级 keyring，避免旧 rootfs 里的 keyring 无法验证 2026 年新包（签名仍由 ALARM 构建密钥校验）。
+pacman -Sy --noconfirm --needed archlinuxarm-keyring
+pacman-key --populate archlinuxarm
 # Generic rootfs 的发行版内核不会用于此介质；先删除以免升级/保留第二套 Image 与 modules。
 # 自编 kernel_release 使用不同目录名，不属于 linux-aarch64 包，不会被此操作删除。
 if pacman -Q linux-aarch64 >/dev/null 2>&1; then
