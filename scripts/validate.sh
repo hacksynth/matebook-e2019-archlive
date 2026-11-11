@@ -96,6 +96,14 @@ grep -Fq 'apply_ucsi_cci_length_shim' "${REPO_ROOT}/scripts/fetch-sources.sh" ||
   fail '缺少 6.16 UCSI_SET_CCI_LENGTH 兼容层'
 grep -Fq 'define UCSI_SET_CCI_LENGTH' "${REPO_ROOT}/scripts/fetch-sources.sh" || \
   fail 'UCSI 兼容层未定义 UCSI_SET_CCI_LENGTH'
+if grep -En 'zstd[^|]*--output' "${REPO_ROOT}/scripts/build.sh" \
+    "${REPO_ROOT}/scripts/build-media.sh" >/dev/null 2>&1; then
+  fail 'zstd 不支持 --output 长选项，必须使用 -o'
+fi
+grep -Fq 'zstd --threads=0 -10 -o' "${REPO_ROOT}/scripts/build.sh" || \
+  fail 'GPL 源码归档的 zstd 输出参数不正确'
+grep -Fq 'zstd --force --threads=0 -19 --long=27 -o' "${REPO_ROOT}/scripts/build-media.sh" || \
+  fail 'raw 镜像压缩的 zstd 输出参数不正确'
 grep -Fxq 'grub' "${CONFIG_DIR}/packages.aarch64" || fail 'ALARM rootfs 未安装原生 grub'
 grep -Fq 'grub-mkstandalone --format=arm64-efi' \
   "${REPO_ROOT}/scripts/prepare-rootfs.sh" || fail '未在 ALARM chroot 生成 AA64 GRUB'

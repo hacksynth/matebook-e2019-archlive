@@ -28,7 +28,7 @@ source_archive="${OUT_DIR}/${LINUX_SOURCE_ARCHIVE}"
 log "生成完整已补丁内核对应源码：${LINUX_SOURCE_ARCHIVE}"
 bsdtar -cf - --exclude 'linux/.git' --exclude 'linux/.git/*' \
   -C "${WORK_DIR}/sources" linux | \
-  zstd --threads=0 -10 --output "${source_archive}"
+  zstd --threads=0 -10 -o "${source_archive}"
 [[ -s ${source_archive} ]] || die "内核对应源码归档未生成"
 archive_list="${WORK_DIR}/linux-source.list"
 bsdtar -tf "${source_archive}" >"${archive_list}"

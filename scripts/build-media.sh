@@ -127,7 +127,7 @@ sgdisk --verify "${RAW_IMAGE}"
 
 log "压缩推荐的 GPT raw 镜像"
 rm -f -- "${IMG_OUTPUT}"
-zstd --force --threads=0 -19 --long=27 "${RAW_IMAGE}" --output "${IMG_OUTPUT}"
+zstd --force --threads=0 -19 --long=27 -o "${IMG_OUTPUT}" "${RAW_IMAGE}"
 
 [[ -s ${ISO_OUTPUT} && -s ${IMG_OUTPUT} ]] || die "介质产物不完整"
 log "ISO 与 raw .img.zst 已生成"
