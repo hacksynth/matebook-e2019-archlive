@@ -62,6 +62,7 @@ expected_files=(
   scripts/fetch-sources.sh scripts/build-kernel.sh scripts/prepare-rootfs.sh
   scripts/build-media.sh scripts/build.sh scripts/validate.sh
   .github/workflows/build.yml .github/workflows/validate.yml
+  .github/workflows/publish-release.yml
 )
 for relative in "${expected_files[@]}"; do
   [[ -f ${REPO_ROOT}/${relative} ]] || fail "缺少文件：${relative}"

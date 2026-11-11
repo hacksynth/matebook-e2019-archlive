@@ -1,0 +1,56 @@
+name: Publish release from build artifact
+
+# 用途：当本地网络无法稳定上传大资产时，直接让 GitHub Runner 从既有成功构建的
+# artifact 下载并发布到 Release，同时重新校验 SHA256SUMS。
+on:
+  workflow_dispatch:
+    inputs:
+      run_id:
+        description: 'Build workflow run id that contains the artifact'
+        required: true
+        type: string
+      tag:
+        description: 'Release tag to publish (created if missing)'
+        required: true
+        type: string
+      artifact_name:
+        description: 'Artifact name'
+        required: false
+        default: 'matebook-e2019-archlive'
+        type: string
+
+permissions:
+  actions: read
+  contents: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+
+      - name: Download build artifact from the selected run
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh run download "${{ inputs.run_id }}" \
+            --repo "${{ github.repository }}" \
+            --name "${{ inputs.artifact_name }}" \
+            --dir release
+
+      - name: Verify checksums before publishing
+        run: (cd release && sha256sum --check SHA256SUMS)
+
+      - name: Publish or update GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if gh release view "${{ inputs.tag }}" >/dev/null 2>&1; then
+            gh release upload "${{ inputs.tag }}" release/* --clobber
+          else
+            gh release create "${{ inputs.tag }}" release/* \
+              --title "PAK-AL09 Arch Linux ARM Live ${{ inputs.tag }} (experimental)" \
+              --generate-notes
+          fi
