@@ -24,7 +24,7 @@ safe_recreate_dir "${LIVE_DIR}"
 
 mounted_paths=()
 cleanup_mounts() {
-  local index path attempt
+  local index path
   set +e
   for ((index=${#mounted_paths[@]}-1; index>=0; index--)); do
     path="${mounted_paths[index]}"

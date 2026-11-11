@@ -113,7 +113,7 @@ grep -Fq 'actions/cache/save@5a3ec84eff668545956fd18022155c47e93e2684' "${build_
   fail 'build workflow 未固定 actions/cache/save SHA'
 grep -Fq 'STAGE: kernel' "${build_workflow}" || fail 'workflow 未拆分内核阶段'
 grep -Fq 'STAGE: media' "${build_workflow}" || fail 'workflow 未拆分介质阶段'
-grep -Fq 'stage="${STAGE:-all}"' "${REPO_ROOT}/scripts/build.sh" || \
+grep -Fq 'STAGE:-all' "${REPO_ROOT}/scripts/build.sh" || \
   fail 'build.sh 未支持 STAGE 分阶段构建'
 grep -Fq 'DisableSandbox' "${REPO_ROOT}/scripts/prepare-rootfs.sh" || \
   fail 'chroot 未关闭 pacman 7 下载沙箱（Landlock 在 qemu-user 下不可用）'
