@@ -107,10 +107,20 @@ grep -Fq 'zstd --force --threads=0 -19 --long=27 -o' "${REPO_ROOT}/scripts/build
   fail 'raw 镜像压缩的 zstd 输出参数不正确'
 grep -Fq 'kernel-cache' "${REPO_ROOT}/scripts/build-kernel.sh" || \
   fail 'build-kernel 未实现内核构建缓存'
-grep -Fq 'actions/cache@5a3ec84eff668545956fd18022155c47e93e2684' "${build_workflow}" || \
-  fail 'build workflow 未固定 actions/cache SHA'
+grep -Fq 'actions/cache/restore@5a3ec84eff668545956fd18022155c47e93e2684' "${build_workflow}" || \
+  fail 'build workflow 未固定 actions/cache/restore SHA'
+grep -Fq 'actions/cache/save@5a3ec84eff668545956fd18022155c47e93e2684' "${build_workflow}" || \
+  fail 'build workflow 未固定 actions/cache/save SHA'
+grep -Fq 'STAGE: kernel' "${build_workflow}" || fail 'workflow 未拆分内核阶段'
+grep -Fq 'STAGE: media' "${build_workflow}" || fail 'workflow 未拆分介质阶段'
+grep -Fq 'stage="${STAGE:-all}"' "${REPO_ROOT}/scripts/build.sh" || \
+  fail 'build.sh 未支持 STAGE 分阶段构建'
 grep -Fq 'DisableSandbox' "${REPO_ROOT}/scripts/prepare-rootfs.sh" || \
   fail 'chroot 未关闭 pacman 7 下载沙箱（Landlock 在 qemu-user 下不可用）'
+grep -Fq '#CheckSpace' "${REPO_ROOT}/scripts/prepare-rootfs.sh" || \
+  fail 'chroot 未规避 pacman CheckSpace 误报'
+grep -Fq 'linux-firmware-amdgpu' "${REPO_ROOT}/scripts/prepare-rootfs.sh" || \
+  fail 'chroot 未移除无关平台固件拆分包'
 grep -Fxq 'grub' "${CONFIG_DIR}/packages.aarch64" || fail 'ALARM rootfs 未安装原生 grub'
 grep -Fq 'grub-mkstandalone --format=arm64-efi' \
   "${REPO_ROOT}/scripts/prepare-rootfs.sh" || fail '未在 ALARM chroot 生成 AA64 GRUB'

@@ -45,15 +45,30 @@ jobs:
             rsync squashfs-tools xorriso zstd
 
       - name: Restore kernel build cache
-        uses: actions/cache@5a3ec84eff668545956fd18022155c47e93e2684 # v4.2.3
+        id: kernel-cache
+        uses: actions/cache/restore@5a3ec84eff668545956fd18022155c47e93e2684 # v4.2.3
         with:
           path: .cache/kernel-cache
           key: kernel-${{ hashFiles('configs/versions.env', 'configs/kernel.fragment', 'scripts/build-kernel.sh', 'scripts/fetch-sources.sh') }}
 
-      - name: Build ISO and raw image
+      - name: Build kernel
         env:
           CLEAN_INTERMEDIATES: '1'
-        run: sudo --preserve-env=GITHUB_ACTIONS,CLEAN_INTERMEDIATES bash scripts/build.sh
+          STAGE: kernel
+        run: sudo --preserve-env=GITHUB_ACTIONS,CLEAN_INTERMEDIATES,STAGE bash scripts/build.sh
+
+      - name: Save kernel build cache
+        if: steps.kernel-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@5a3ec84eff668545956fd18022155c47e93e2684 # v4.2.3
+        with:
+          path: .cache/kernel-cache
+          key: kernel-${{ hashFiles('configs/versions.env', 'configs/kernel.fragment', 'scripts/build-kernel.sh', 'scripts/fetch-sources.sh') }}
+
+      - name: Build rootfs and media
+        env:
+          CLEAN_INTERMEDIATES: '1'
+          STAGE: media
+        run: sudo --preserve-env=GITHUB_ACTIONS,CLEAN_INTERMEDIATES,STAGE bash scripts/build.sh
 
       - name: Report final disk use
         if: always()

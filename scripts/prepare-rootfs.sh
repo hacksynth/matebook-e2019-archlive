@@ -28,7 +28,7 @@ cleanup_mounts() {
   set +e
   for ((index=${#mounted_paths[@]}-1; index>=0; index--)); do
     path="${mounted_paths[index]}"
-    for attempt in 1 2 3; do
+    for _ in 1 2 3; do
       mountpoint -q "${path}" || break
       umount --recursive "${path}" 2>/dev/null || sleep 2
     done
@@ -72,6 +72,9 @@ if ! grep -Eq '^[[:space:]]*DisableSandbox([[:space:]]|$)' /etc/pacman.conf; the
   sed -i '/^\[options\]/a DisableSandbox' /etc/pacman.conf
 fi
 sed -i -E 's/^[[:space:]]*(DownloadUser[[:space:]]*=)/#\1/' /etc/pacman.conf
+# 精简 rootfs 的 /var/cache 可能是空目录；pacman 7 的 CheckSpace 会误报“磁盘不足”。
+install -d -m 0755 /var/cache/pacman/pkg
+sed -i -E 's/^[[:space:]]*CheckSpace/#CheckSpace/' /etc/pacman.conf
 
 pacman-key --init
 pacman-key --populate archlinuxarm
@@ -83,6 +86,15 @@ pacman-key --populate archlinuxarm
 if pacman -Q linux-aarch64 >/dev/null 2>&1; then
   pacman -Rdd --noconfirm linux-aarch64
 fi
+# 只保留 Qualcomm/Atheros 固件：移除全量元包与无关平台的拆分包，控制镜像体积。
+for firmware_pkg in linux-firmware linux-firmware-amd linux-firmware-amdgpu \
+  linux-firmware-broadcom linux-firmware-intel linux-firmware-mediatek \
+  linux-firmware-nvidia linux-firmware-radeon linux-firmware-realtek \
+  linux-firmware-ti; do
+  if pacman -Q "${firmware_pkg}" >/dev/null 2>&1; then
+    pacman -Rdd --noconfirm "${firmware_pkg}" >/dev/null
+  fi
+done
 pacman --noconfirm -Syu --needed "${packages[@]}"
 
 printf 'matebook-live\n' >/etc/hostname
