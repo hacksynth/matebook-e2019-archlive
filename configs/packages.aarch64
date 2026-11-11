@@ -1,0 +1,22 @@
+# Arch Linux ARM rolling package层。最终精确版本会写入构建产物 packages.txt。
+base
+bash-completion
+ca-certificates
+curl
+device-mapper
+dracut
+e2fsprogs
+grub
+iproute2
+iwd
+less
+# 只装此设备相关固件拆分包，避免把 AMD/NVIDIA/Intel 固件塞进 Live 镜像。
+linux-firmware-atheros
+linux-firmware-qcom
+networkmanager
+openssh
+sudo
+usbutils
+vim
+wireless-regdb
+wpa_supplicant

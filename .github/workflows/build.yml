@@ -1,0 +1,92 @@
+name: Build PAK-AL09 Arch Live
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 360
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+
+      - name: Free disk on ephemeral runner
+        run: |
+          df -h /
+          for path in /usr/local/lib/android /usr/share/dotnet /opt/ghc /usr/local/.ghcup; do
+            if [[ -d "${path}" ]]; then
+              sudo rm -rf --one-file-system -- "${path}"
+            fi
+          done
+          docker system prune --all --force || true
+          df -h /
+
+      - name: Install host dependencies
+        env:
+          DEBIAN_FRONTEND: noninteractive
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes --no-install-recommends \
+            bc bison build-essential ca-certificates cpio curl device-tree-compiler \
+            dirmngr dosfstools e2fsprogs file flex gcc-aarch64-linux-gnu gdisk git gnupg \
+            kmod libarchive-tools libelf-dev libssl-dev mtools patch qemu-user-static \
+            rsync squashfs-tools xorriso zstd
+
+      - name: Build ISO and raw image
+        env:
+          CLEAN_INTERMEDIATES: '1'
+        run: sudo --preserve-env=GITHUB_ACTIONS,CLEAN_INTERMEDIATES bash scripts/build.sh
+
+      - name: Report final disk use
+        if: always()
+        run: df -h /
+
+      - name: Verify release checksums
+        run: (cd out && sha256sum --check SHA256SUMS)
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: matebook-e2019-archlive
+          path: out/
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 14
+
+  release:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: build
+    runs-on: ubuntu-24.04
+    permissions:
+      actions: read
+      contents: write
+    steps:
+      - name: Download verified artifacts
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: matebook-e2019-archlive
+          path: release
+
+      - name: Publish or update GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          (cd release && sha256sum --check SHA256SUMS)
+          if gh release view "${GITHUB_REF_NAME}" >/dev/null 2>&1; then
+            gh release upload "${GITHUB_REF_NAME}" release/* --clobber
+          else
+            gh release create "${GITHUB_REF_NAME}" release/* \
+              --verify-tag --generate-notes --title "${GITHUB_REF_NAME}"
+          fi

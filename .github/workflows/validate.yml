@@ -1,0 +1,30 @@
+name: Static validation
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+
+      - name: Install validators
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes --no-install-recommends file shellcheck ruby
+          go install github.com/rhysd/actionlint/cmd/actionlint@v1.7.7
+          echo "${HOME}/go/bin" >>"${GITHUB_PATH}"
+
+      - name: Validate shell, YAML, workflow and source locks
+        env:
+          STRICT_TOOLS: '1'
+        run: bash scripts/validate.sh
