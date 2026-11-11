@@ -47,6 +47,34 @@ apply_patch_once "${KERNEL_DIR}" "${PATCH_DIR}/$(basename -- "${EC_PATCH_PATH}")
 apply_patch_once "${KERNEL_DIR}" "${PATCH_DIR}/$(basename -- "${DEVICETREE_PATCH_PATH}")"
 apply_patch_once "${KERNEL_DIR}" "${PATCH_DIR}/$(basename -- "${QSEECOM_PATCH_PATH}")"
 
+# 兼容层：New-Wheat 的 Planck UCSI 驱动用 UCSI_SET_CCI_LENGTH() 构造合成 CCI，
+# 而固定的 6.16 树只有读取用的 UCSI_CCI_LENGTH()。这里幂等地补上等价的写入宏；
+# 若基线将来已提供该宏则不改动。语义与 UCSI CCI length 字段（bit 15:8）一致。
+apply_ucsi_cci_length_shim() {
+  local header="${KERNEL_DIR}/drivers/usb/typec/ucsi/ucsi.h" tmp
+  [[ -f ${header} ]] || die "未找到 UCSI 头文件：${header}"
+  if grep -q 'define UCSI_SET_CCI_LENGTH' "${header}"; then
+    log "UCSI 基线已提供 UCSI_SET_CCI_LENGTH，跳过兼容层"
+    return 0
+  fi
+  tmp="${header}.shim"
+  awk '
+    !done && /^#define UCSI_CCI_LENGTH\(/ {
+      print "/* PAK-AL09 live 构建兼容层：6.16 CCI 只有读取宏。 */";
+      print "#ifndef UCSI_SET_CCI_LENGTH";
+      print "#define UCSI_SET_CCI_LENGTH(_len_) (((_len_) << 8) & GENMASK(15, 8))";
+      print "#endif";
+      done = 1;
+    }
+    { print }
+  ' "${header}" >"${tmp}"
+  mv -f -- "${tmp}" "${header}"
+  grep -q 'define UCSI_SET_CCI_LENGTH' "${header}" || \
+    die "UCSI_SET_CCI_LENGTH 兼容层写入失败"
+  log "已为 6.16 基线补充 UCSI_SET_CCI_LENGTH 兼容宏"
+}
+apply_ucsi_cci_length_shim
+
 fetch_file "${ALARM_ROOTFS_URL}" "${ROOTFS_TARBALL}"
 actual_md5="$(md5sum --binary "${ROOTFS_TARBALL}" | awk '{print $1}')"
 [[ ${actual_md5} == "${ALARM_ROOTFS_MD5}" ]] || \

@@ -74,15 +74,17 @@ ALARM 的下载镜像只提供 HTTP，传输层本身不可信；完整 OpenPGP 
 3. 固定并校验 `huawei_planck_ec.patch`（EC、电池、背光、UCSI）；
 4. 固定并校验 `huawei_planck_devicetree.patch`；
 5. 固定并校验 `huawei_planck_qseecom.patch`；
-6. 合并 [`configs/kernel.fragment`](configs/kernel.fragment)，交叉编译 `Image`、
+6. 应用一个最小兼容层：固定 6.16 基线只有 `UCSI_CCI_LENGTH()` 读取宏，而 Planck
+   UCSI 驱动需要 `UCSI_SET_CCI_LENGTH()`，构建脚本幂等地补上等价的 CCI 长度写入宏；
+7. 合并 [`configs/kernel.fragment`](configs/kernel.fragment)，交叉编译 `Image`、
    modules 与 PAK-AL09 DTB，并生成包含全部已应用补丁的 GPL 对应源码归档；
-7. 用 `bsdtar -xpf`（保留 owner/mode/ACL/xattr）展开 rootfs，在 qemu-aarch64
+8. 用 `bsdtar -xpf`（保留 owner/mode/ACL/xattr）展开 rootfs，在 qemu-aarch64
    chroot 中安装原生 AArch64 `grub`，把提供 `devicetree` 命令的 `fdt.mod` 嵌入
    `BOOTAA64.EFI`，并由 dracut 的 `dmsquash-live` 生成 initramfs（dracut-ng ≥ 103
    的模块目录是 `70dmsquash-live`，更早版本是 `90dmsquash-live`，脚本两者都接受）；
    Generic rootfs 自带且不会启动的 `linux-aarch64`
    包会在升级前移除，避免保留第二套内核/模块；
-8. GRUB AA64 通过设备树启动 squashfs + `rd.overlay` 临时 overlay；制作 ISO 和
+9. GRUB AA64 通过设备树启动 squashfs + `rd.overlay` 临时 overlay；制作 ISO 和
    GPT raw 镜像。USB-C 根介质所需 DWC3/QCOM glue、QMP/QUSB2 PHY、USB Storage/UAS
    都强制内建，不依赖 initramfs 猜测模块。
 
@@ -179,6 +181,21 @@ sync
 选择 USB 的 AA64 UEFI 启动项。Live 账号为 `live`，密码为 `live`，wheel/sudo 无密码；
 root 密码锁定。该弱密码只适合临时、受控的 Live 环境；`sshd` 已安装但默认禁用，
 需要时请在改密或配置密钥后手工启动。
+
+### 首次启动排错
+
+GRUB 菜单提供三个条目，按以下顺序尝试：
+
+1. 默认条目（`qcom_scm.qseecom=auto`，OverlayFS 临时 overlay）；
+2. **禁用 QSEECom**（`qcom_scm.qseecom=off`）：UEFI 变量/安全世界相关崩溃时使用；
+3. **`efi=novamap`**：设备 UEFI 在 `SetVirtualAddressMap` 后异常（重启、黑屏、卡死）时使用。
+
+如果没有任何输出，先用外接 USB 键盘确认是否已进入 GRUB；再检查固件是否把该 U 盘识别为
+UEFI 可移动设备。QEMU/其他机器上的启动验证不能代替 PAK-AL09 真机。
+
+系统内可用 `dmesg | grep -Ei 'panic|oops|firmware|dwc3|panel|touch'` 收集信息。Wi‑Fi 依赖
+`qcom,calibration-variant` 指向的板级 BDF；固定补丁使用的是 `Lenovo_C630` 校准名，
+若 `dmesg` 报告找不到 board data，则属于缺少设备专有校准文件，而不是构建错误。
 
 ## 静态检查
 

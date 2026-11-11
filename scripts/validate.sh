@@ -92,6 +92,10 @@ grep -Fq 'INSTALL_MOD_STRIP=1' "${REPO_ROOT}/scripts/build-kernel.sh" || \
   fail 'modules_install 未剥离调试符号'
 grep -Fq 'linux-firmware-qcom' "${CONFIG_DIR}/packages.aarch64" || \
   fail 'Live rootfs 缺少 linux-firmware-qcom'
+grep -Fq 'apply_ucsi_cci_length_shim' "${REPO_ROOT}/scripts/fetch-sources.sh" || \
+  fail '缺少 6.16 UCSI_SET_CCI_LENGTH 兼容层'
+grep -Fq 'define UCSI_SET_CCI_LENGTH' "${REPO_ROOT}/scripts/fetch-sources.sh" || \
+  fail 'UCSI 兼容层未定义 UCSI_SET_CCI_LENGTH'
 grep -Fxq 'grub' "${CONFIG_DIR}/packages.aarch64" || fail 'ALARM rootfs 未安装原生 grub'
 grep -Fq 'grub-mkstandalone --format=arm64-efi' \
   "${REPO_ROOT}/scripts/prepare-rootfs.sh" || fail '未在 ALARM chroot 生成 AA64 GRUB'
