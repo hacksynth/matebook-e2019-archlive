@@ -24,12 +24,17 @@ safe_recreate_dir "${LIVE_DIR}"
 
 mounted_paths=()
 cleanup_mounts() {
-  local index path
+  local index path attempt
   set +e
   for ((index=${#mounted_paths[@]}-1; index>=0; index--)); do
     path="${mounted_paths[index]}"
+    for attempt in 1 2 3; do
+      mountpoint -q "${path}" || break
+      umount --recursive "${path}" 2>/dev/null || sleep 2
+    done
     if mountpoint -q "${path}"; then
-      umount --recursive "${path}"
+      # 兜底：延迟卸载，避免残留的 qemu/chroot 引用导致随后 squashfs 打包宿主 /dev。
+      umount --lazy "${path}" 2>/dev/null || true
     fi
   done
 }
@@ -60,6 +65,13 @@ set -Eeuo pipefail
 
 kernel_release="$(</root/kernel-release)"
 mapfile -t packages </root/live-packages
+
+# pacman 7 的下载沙箱依赖 Landlock（qemu-user chroot 不支持），且会切换到 alpm 用户。
+# 关闭沙箱和下载用户切换；包签名校验（SigLevel）仍然启用，不受影响。
+if ! grep -Eq '^[[:space:]]*DisableSandbox([[:space:]]|$)' /etc/pacman.conf; then
+  sed -i '/^\[options\]/a DisableSandbox' /etc/pacman.conf
+fi
+sed -i -E 's/^[[:space:]]*(DownloadUser[[:space:]]*=)/#\1/' /etc/pacman.conf
 
 pacman-key --init
 pacman-key --populate archlinuxarm
@@ -165,6 +177,11 @@ log "在 qemu-aarch64 chroot 中安装软件并生成 dracut live initramfs"
 chroot "${ROOTFS_DIR}" /usr/bin/qemu-aarch64-static /bin/bash /root/configure-live.sh
 cleanup_mounts
 mounted_paths=()
+for pseudo_path in "${ROOTFS_DIR}/dev" "${ROOTFS_DIR}/proc" "${ROOTFS_DIR}/sys"; do
+  if mountpoint -q "${pseudo_path}"; then
+    die "chroot 后仍挂载 ${pseudo_path}；拒绝把宿主文件系统打包进 squashfs"
+  fi
+done
 
 install -m 0644 "${ROOTFS_DIR}/boot/initramfs-${KERNEL_RELEASE}-live.img" \
   "${BOOT_DIR}/initramfs-live.img"

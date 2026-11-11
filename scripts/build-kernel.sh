@@ -6,7 +6,7 @@ SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
 # shellcheck source=lib/common.sh
 source "${SCRIPT_DIR}/lib/common.sh"
 
-require_tools aarch64-linux-gnu-gcc bc bison flex make rsync
+require_tools aarch64-linux-gnu-gcc bc bison flex make rsync sha256sum
 ensure_dirs
 
 KERNEL_DIR="${WORK_DIR}/sources/linux"
@@ -18,6 +18,53 @@ BOOT_DIR="${WORK_DIR}/boot"
 safe_recreate_dir "${BUILD_DIR}"
 safe_recreate_dir "${STAGE_DIR}"
 safe_recreate_dir "${BOOT_DIR}"
+
+# 内核构建缓存：键包含基线提交、补丁哈希、Kconfig fragment 与构建/取源脚本。
+# 命中时跳过约 30 分钟的编译；任何会影响产物的输入变化都会改变键。
+kernel_cache_root="${KERNEL_CACHE_DIR:-${CACHE_DIR}/kernel-cache}"
+kernel_cache_key="$(cat "${CONFIG_DIR}/versions.env" "${CONFIG_DIR}/kernel.fragment" \
+  "${SCRIPT_DIR}/build-kernel.sh" "${SCRIPT_DIR}/fetch-sources.sh" | sha256sum | awk '{print $1}')"
+kernel_cache_dir="${kernel_cache_root}/${kernel_cache_key}"
+
+restore_cached_kernel() {
+  local cached_release
+  [[ -f ${kernel_cache_dir}/ready ]] || return 1
+  cached_release="$(<"${kernel_cache_dir}/kernel-release")"
+  [[ -s ${kernel_cache_dir}/Image ]] || return 1
+  [[ -s ${kernel_cache_dir}/dtb/${DEVICE_DTB} ]] || return 1
+  [[ -d ${kernel_cache_dir}/modules/${cached_release} ]] || return 1
+  install -m 0644 "${kernel_cache_dir}/Image" "${BOOT_DIR}/Image"
+  install -D -m 0644 "${kernel_cache_dir}/dtb/${DEVICE_DTB}" \
+    "${BOOT_DIR}/dtb/${DEVICE_DTB}"
+  install -m 0644 "${kernel_cache_dir}/kernel.config" "${BOOT_DIR}/kernel.config"
+  install -d -m 0755 "${STAGE_DIR}/lib/modules"
+  rsync -aH "${kernel_cache_dir}/modules/${cached_release}/" \
+    "${STAGE_DIR}/lib/modules/${cached_release}/"
+  printf '%s\n' "${cached_release}" >"${WORK_DIR}/kernel-release"
+  log "命中内核缓存 ${kernel_cache_key:0:12}：跳过编译，复用 ${cached_release}"
+  return 0
+}
+
+store_kernel_cache() {
+  local release="$1"
+  install -d -m 0755 "${kernel_cache_root}"
+  safe_remove_dir "${kernel_cache_dir}"
+  install -d -m 0755 "${kernel_cache_dir}/dtb/qcom" \
+    "${kernel_cache_dir}/modules/${release}"
+  install -m 0644 "${BOOT_DIR}/Image" "${kernel_cache_dir}/Image"
+  install -m 0644 "${BOOT_DIR}/dtb/${DEVICE_DTB}" \
+    "${kernel_cache_dir}/dtb/${DEVICE_DTB}"
+  install -m 0644 "${BOOT_DIR}/kernel.config" "${kernel_cache_dir}/kernel.config"
+  printf '%s\n' "${release}" >"${kernel_cache_dir}/kernel-release"
+  rsync -aH "${STAGE_DIR}/lib/modules/${release}/" \
+    "${kernel_cache_dir}/modules/${release}/"
+  printf 'ok %s\n' "${release}" >"${kernel_cache_dir}/ready"
+  log "内核构建已写入缓存：${kernel_cache_dir}"
+}
+
+if restore_cached_kernel; then
+  exit 0
+fi
 
 export ARCH=arm64
 export CROSS_COMPILE=aarch64-linux-gnu-
@@ -72,4 +119,5 @@ install -m 0644 "${BUILD_DIR}/.config" "${BOOT_DIR}/kernel.config"
 [[ -s ${BOOT_DIR}/Image ]] || die "Image 未生成"
 [[ -s ${BOOT_DIR}/dtb/${DEVICE_DTB} ]] || die "PAK-AL09 DTB 未生成"
 [[ -d ${STAGE_DIR}/lib/modules/${kernel_release} ]] || die "内核模块未安装"
+store_kernel_cache "${kernel_release}"
 log "内核构建完成：${kernel_release}"

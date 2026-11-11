@@ -83,7 +83,8 @@ ALARM 的下载镜像只提供 HTTP，传输层本身不可信；完整 OpenPGP 
    `BOOTAA64.EFI`，并由 dracut 的 `dmsquash-live` 生成 initramfs（dracut-ng ≥ 103
    的模块目录是 `70dmsquash-live`，更早版本是 `90dmsquash-live`，脚本两者都接受）；
    Generic rootfs 自带且不会启动的 `linux-aarch64`
-   包会在升级前移除，避免保留第二套内核/模块；
+   包会在升级前移除，避免保留第二套内核/模块；chroot 内会关闭 pacman 7 的下载
+   Landlock 沙箱（qemu-user 不支持），但包签名校验保持启用；
 9. GRUB AA64 通过设备树启动 squashfs + `rd.overlay` 临时 overlay；制作 ISO 和
    GPT raw 镜像。USB-C 根介质所需 DWC3/QCOM glue、QMP/QUSB2 PHY、USB Storage/UAS
    都强制内建，不依赖 initramfs 猜测模块。
@@ -134,7 +135,8 @@ sudo VENDOR_FIRMWARE_DIR=/absolute/path/to/firmware-tree bash scripts/build.sh
 - [`build.yml`](.github/workflows/build.yml)：普通 build job 仅有
   `contents: read`；tag 为 `v*` 时，独立 release job 才获得下载同一工作流产物所需的
   `actions: read` 与发布所需的 `contents: write`。
-  所有 GitHub 官方 action 都固定为完整 commit SHA。
+  所有 GitHub 官方 action 都固定为完整 commit SHA。内核编译产物按
+  `versions.env`/`kernel.fragment`/构建脚本的哈希缓存，命中时跳过约 30 分钟编译。
 - push、PR 与手工触发会构建 artifact；tag 构建在校验哈希后自动创建/更新 GitHub
   Release。
 

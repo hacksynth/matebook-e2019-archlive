@@ -7,6 +7,7 @@ SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
 source "${SCRIPT_DIR}/lib/common.sh"
 
 failures=0
+build_workflow="${REPO_ROOT}/.github/workflows/build.yml"
 fail() {
   printf 'ERROR: %s\n' "$*" >&2
   failures=$((failures + 1))
@@ -104,6 +105,12 @@ grep -Fq 'zstd --threads=0 -10 -o' "${REPO_ROOT}/scripts/build.sh" || \
   fail 'GPL 源码归档的 zstd 输出参数不正确'
 grep -Fq 'zstd --force --threads=0 -19 --long=27 -o' "${REPO_ROOT}/scripts/build-media.sh" || \
   fail 'raw 镜像压缩的 zstd 输出参数不正确'
+grep -Fq 'kernel-cache' "${REPO_ROOT}/scripts/build-kernel.sh" || \
+  fail 'build-kernel 未实现内核构建缓存'
+grep -Fq 'actions/cache@5a3ec84eff668545956fd18022155c47e93e2684' "${build_workflow}" || \
+  fail 'build workflow 未固定 actions/cache SHA'
+grep -Fq 'DisableSandbox' "${REPO_ROOT}/scripts/prepare-rootfs.sh" || \
+  fail 'chroot 未关闭 pacman 7 下载沙箱（Landlock 在 qemu-user 下不可用）'
 grep -Fxq 'grub' "${CONFIG_DIR}/packages.aarch64" || fail 'ALARM rootfs 未安装原生 grub'
 grep -Fq 'grub-mkstandalone --format=arm64-efi' \
   "${REPO_ROOT}/scripts/prepare-rootfs.sh" || fail '未在 ALARM chroot 生成 AA64 GRUB'
