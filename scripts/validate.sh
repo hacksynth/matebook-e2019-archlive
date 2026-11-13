@@ -107,7 +107,7 @@ grep -Fq 'zstd --force --threads=0 -19 --long=27 -o' "${REPO_ROOT}/scripts/build
   fail 'raw 镜像压缩的 zstd 输出参数不正确'
 grep -Fq 'kernel-cache' "${REPO_ROOT}/scripts/build-kernel.sh" || \
   fail 'build-kernel 未实现内核构建缓存'
-grep -Fq '"${CONFIG_DIR}/device.env"' "${REPO_ROOT}/scripts/build-kernel.sh" || \
+grep -Fq "\"\${CONFIG_DIR}/device.env\"" "${REPO_ROOT}/scripts/build-kernel.sh" || \
   fail '内核缓存键未包含设备配置'
 grep -Fq "configs/device.env" "${build_workflow}" || \
   fail 'build workflow 内核缓存键未包含设备配置'
@@ -144,7 +144,7 @@ if grep -Fq 'grub-efi-arm64-bin' "${build_workflow}"; then
 fi
 grep -Fq 'LINUX_SOURCE_ARCHIVE=' "${CONFIG_DIR}/versions.env" || fail '缺少 GPL 对应源码资产名'
 grep -Fq 'bsdtar -cf -' "${REPO_ROOT}/scripts/build.sh" || fail '未生成完整已补丁内核源码归档'
-grep -Fq 'linux/arch/arm64/boot/dts/${device_dts}' \
+grep -Fq "linux/arch/arm64/boot/dts/\${device_dts}" \
   "${REPO_ROOT}/scripts/build.sh" || fail '源码归档未检查目标设备树'
 if grep -Fq 'huawei-planck-ec.c' "${REPO_ROOT}/scripts/build.sh"; then
   fail 'stable 7.3.4 构建不应再检查已移除的 Planck EC 源码'
