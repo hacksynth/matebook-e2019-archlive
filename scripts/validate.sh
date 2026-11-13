@@ -50,6 +50,9 @@ fi
 [[ ${LINUX_COMMIT} =~ ^[0-9a-f]{40}$ ]] || fail 'LINUX_COMMIT 不是完整 SHA-1'
 [[ ${ALARM_BUILD_KEY_FINGERPRINT} =~ ^[0-9A-F]{40}$ ]] || fail 'ALARM 构建密钥不是完整指纹'
 [[ ${LINUX_REF} == v7.3.4 ]] || fail 'LINUX_REF 不是预期的稳定版 tag v7.3.4'
+[[ ${LINUX_MIRROR} == *git.kernel.org* ]] || fail '缺少 kernel.org 回退镜像'
+grep -Fq 'LINUX_MIRROR' "${REPO_ROOT}/scripts/fetch-sources.sh" || \
+  fail 'fetch-sources 未实现内核镜像回退'
 grep -Fq 'fetch --quiet --depth=1 origin' \
   "${REPO_ROOT}/scripts/fetch-sources.sh" || fail 'fetch-sources 未按 tag 抓取并校验内核'
 grep -Fq '内核提交不匹配' "${REPO_ROOT}/scripts/fetch-sources.sh" || \

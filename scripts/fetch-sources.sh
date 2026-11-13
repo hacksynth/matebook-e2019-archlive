@@ -19,8 +19,19 @@ safe_recreate_dir "${SOURCE_DIR}"
 # 只 fetch 固定的上游 tag/分支，并逐个字节核对锁定提交；分支被上游移动时会失败关闭。
 log "获取内核 ${LINUX_REF}（固定提交 ${LINUX_COMMIT}）"
 git init --quiet "${KERNEL_DIR}"
-git -C "${KERNEL_DIR}" remote add origin "${LINUX_REPO}"
-git -C "${KERNEL_DIR}" fetch --quiet --depth=1 origin "${LINUX_REF}"
+fetched=0
+for remote_repo in "${LINUX_REPO}" "${LINUX_MIRROR}"; do
+  git -C "${KERNEL_DIR}" remote remove origin >/dev/null 2>&1 || true
+  git -C "${KERNEL_DIR}" remote add origin "${remote_repo}"
+  log "尝试内核源：${remote_repo}"
+  if git -C "${KERNEL_DIR}" fetch --quiet --depth=1 origin "${LINUX_REF}"; then
+    fetched=1
+    log "内核源可用：${remote_repo}"
+    break
+  fi
+  log "内核源不可用，尝试备用镜像"
+done
+((fetched)) || die "无法从任何锁定镜像获取内核 ${LINUX_REF}"
 git -C "${KERNEL_DIR}" -c advice.detachedHead=false checkout --quiet --detach FETCH_HEAD
 actual_commit="$(git -C "${KERNEL_DIR}" rev-parse HEAD)"
 [[ ${actual_commit} == "${LINUX_COMMIT}" ]] || \

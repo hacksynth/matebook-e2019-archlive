@@ -74,7 +74,7 @@ Fn 键、部分 USB-C 角色切换）在 v0.2.0 中可能不可用；这些功�
 
 | 输入 | 固定版本 / URL | 构建时验证 |
 |---|---|---|
-| Linux 内核 | `https://git.kernel.org/pub/scm/linux/kernel/git/stable/linux.git`，tag `v7.3.4`，提交 `7595a62d45ee1a2297eafa5f2ef5d0a45142d84d` | 只 fetch 该 tag（depth=1），比较完整 commit ID；分支/tag 被移动会导致构建失败关闭 |
+| Linux 内核 | `https://github.com/gregkh/linux.git`（stable 镜像，tag 对象与 kernel.org 一致；kernel.org 为回退），tag `v7.3.4`，提交 `7595a62d45ee1a2297eafa5f2ef5d0a45142d84d` | 只 fetch 该 tag（depth=1），比较完整 commit ID；分支/tag 被移动会导致构建失败关闭 |
 | Generic AArch64 ALARM rootfs | `http://fl.us.mirror.archlinuxarm.org/os/ArchLinuxARM-aarch64-latest.tar.gz`，上游时间 `2026-08-05T12:41:36Z` | MD5 `23eec86365b24f7913c403e8f4e8719b` 锁定字节（**不**作为抗攻击哈希）；同时强制验证 detached OpenPGP 签名，签名者完整指纹必须为 `68B3537F39A313B3E574D06777193F152BDBE6A6` |
 | ALARM 公钥 | `hkps://keyserver.ubuntu.com`，失败时回退 HTTPS keyserver | 取得后比较 40 位完整指纹 |
 | 构建产物 | 本次 `out/` | 对所有发布文件生成 `SHA256SUMS`；workflow 上传与 Release 前再次 `sha256sum --check` |
@@ -230,3 +230,4 @@ AA64_EFI_PATH=.work/boot/BOOTAA64.EFI STRICT_TOOLS=1 bash scripts/validate.sh
 内核、Arch Linux ARM 包和固件分别受其各自许可证约束；自动构建会把
 `linux-source-7.3.4.tar.zst` 与内核/模块一同发布并纳入 `SHA256SUMS`，用于提供本次
 内核的完整对应源码；发布者仍须履行其余 GPL 条款、软件包许可证与固件条款。
+
