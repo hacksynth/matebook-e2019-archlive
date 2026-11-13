@@ -48,12 +48,12 @@ else
 fi
 
 [[ ${LINUX_COMMIT} =~ ^[0-9a-f]{40}$ ]] || fail 'LINUX_COMMIT 不是完整 SHA-1'
-[[ ${NEW_WHEAT_COMMIT} =~ ^[0-9a-f]{40}$ ]] || fail 'NEW_WHEAT_COMMIT 不是完整 SHA-1'
 [[ ${ALARM_BUILD_KEY_FINGERPRINT} =~ ^[0-9A-F]{40}$ ]] || fail 'ALARM 构建密钥不是完整指纹'
-for digest in "${UCSI_PATCH_SHA256}" "${EC_PATCH_SHA256}" \
-  "${QSEECOM_PATCH_SHA256}" "${DEVICETREE_PATCH_SHA256}"; do
-  [[ ${digest} =~ ^[0-9a-f]{64}$ ]] || fail "补丁 SHA-256 非法：${digest}"
-done
+[[ ${LINUX_REF} == v7.3.4 ]] || fail 'LINUX_REF 不是预期的稳定版 tag v7.3.4'
+grep -Fq 'fetch --quiet --depth=1 origin' \
+  "${REPO_ROOT}/scripts/fetch-sources.sh" || fail 'fetch-sources 未按 tag 抓取并校验内核'
+grep -Fq '内核提交不匹配' "${REPO_ROOT}/scripts/fetch-sources.sh" || \
+  fail 'fetch-sources 未校验锁定内核提交'
 
 expected_files=(
   README.md LICENSE .gitignore
@@ -94,10 +94,9 @@ grep -Fq 'INSTALL_MOD_STRIP=1' "${REPO_ROOT}/scripts/build-kernel.sh" || \
   fail 'modules_install 未剥离调试符号'
 grep -Fq 'linux-firmware-qcom' "${CONFIG_DIR}/packages.aarch64" || \
   fail 'Live rootfs 缺少 linux-firmware-qcom'
-grep -Fq 'apply_ucsi_cci_length_shim' "${REPO_ROOT}/scripts/fetch-sources.sh" || \
-  fail '缺少 6.16 UCSI_SET_CCI_LENGTH 兼容层'
-grep -Fq 'define UCSI_SET_CCI_LENGTH' "${REPO_ROOT}/scripts/fetch-sources.sh" || \
-  fail 'UCSI 兼容层未定义 UCSI_SET_CCI_LENGTH'
+if grep -Fq 'EC_HUAWEI_PLANCK' "${CONFIG_DIR}/kernel.fragment"; then
+  fail 'stable 7.3.4 profile 不应再断言已移除的 6.16 Planck EC 驱动'
+fi
 if grep -En 'zstd[^|]*--output' "${REPO_ROOT}/scripts/build.sh" \
     "${REPO_ROOT}/scripts/build-media.sh" >/dev/null 2>&1; then
   fail 'zstd 不支持 --output 长选项，必须使用 -o'

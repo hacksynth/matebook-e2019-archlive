@@ -92,11 +92,6 @@ required_configs=(
   'CONFIG_PHY_QCOM_QUSB2=y'
   'CONFIG_USB_STORAGE=y'
   'CONFIG_USB_UAS=y'
-  'CONFIG_EC_HUAWEI_PLANCK=m'
-  'CONFIG_BATTERY_HUAWEI_PLANCK=m'
-  'CONFIG_UCSI_HUAWEI_PLANCK=m'
-  'CONFIG_QCOM_QSEECOM=y'
-  'CONFIG_QCOM_QSEECOM_UEFISECAPP=y'
 )
 for setting in "${required_configs[@]}"; do
   grep -Fxq "${setting}" "${BUILD_DIR}/.config" || die "内核配置未满足：${setting}"
