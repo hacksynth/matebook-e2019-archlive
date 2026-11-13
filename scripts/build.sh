@@ -46,8 +46,9 @@ build_kernel_stage() {
   if grep -Eq '(^|/)\.git(/|$)' "${archive_list}"; then
     die "内核对应源码归档意外包含 .git"
   fi
-  grep -Fxq 'linux/drivers/platform/arm64/huawei-planck-ec.c' "${archive_list}" || \
-    die "内核对应源码归档缺少已应用的 Planck EC 源码"
+  device_dts="${DEVICE_DTB%.dtb}.dts"
+  grep -Fxq "linux/arch/arm64/boot/dts/${device_dts}" "${archive_list}" || \
+    die "内核对应源码归档缺少 ${DEVICE_MODEL} 上游设备树：${device_dts}"
   rm -f -- "${archive_list}"
 
   if ((clean_intermediates)); then
@@ -71,6 +72,7 @@ build_media_stage() {
   install -m 0644 "${WORK_DIR}/live/packages.txt" "${OUT_DIR}/packages.txt"
   install -m 0644 "${WORK_DIR}/boot/kernel.config" "${OUT_DIR}/kernel.config"
   install -m 0644 "${CONFIG_DIR}/versions.env" "${OUT_DIR}/SOURCE-LOCK.env"
+  install -m 0644 "${CONFIG_DIR}/device.env" "${OUT_DIR}/DEVICE-PROFILE.env"
 
   (
     cd "${OUT_DIR}"

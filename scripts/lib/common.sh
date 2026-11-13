@@ -11,6 +11,8 @@ OUT_DIR="${OUT_DIR:-${REPO_ROOT}/out}"
 
 # shellcheck source=../../configs/versions.env
 source "${CONFIG_DIR}/versions.env"
+# shellcheck source=../../configs/device.env
+source "${CONFIG_DIR}/device.env"
 
 log() {
   printf '[%s] %s\n' "$(date -u +'%Y-%m-%dT%H:%M:%SZ')" "$*" >&2

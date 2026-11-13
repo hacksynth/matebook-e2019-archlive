@@ -57,7 +57,7 @@ grep -Fq '内核提交不匹配' "${REPO_ROOT}/scripts/fetch-sources.sh" || \
 
 expected_files=(
   README.md LICENSE .gitignore
-  configs/versions.env configs/kernel.fragment configs/dracut.conf
+  configs/versions.env configs/device.env configs/kernel.fragment configs/dracut.conf
   configs/grub.cfg configs/grub-embedded.cfg configs/packages.aarch64
   scripts/fetch-sources.sh scripts/build-kernel.sh scripts/prepare-rootfs.sh
   scripts/build-media.sh scripts/build.sh scripts/validate.sh
@@ -107,6 +107,10 @@ grep -Fq 'zstd --force --threads=0 -19 --long=27 -o' "${REPO_ROOT}/scripts/build
   fail 'raw 镜像压缩的 zstd 输出参数不正确'
 grep -Fq 'kernel-cache' "${REPO_ROOT}/scripts/build-kernel.sh" || \
   fail 'build-kernel 未实现内核构建缓存'
+grep -Fq '"${CONFIG_DIR}/device.env"' "${REPO_ROOT}/scripts/build-kernel.sh" || \
+  fail '内核缓存键未包含设备配置'
+grep -Fq "configs/device.env" "${build_workflow}" || \
+  fail 'build workflow 内核缓存键未包含设备配置'
 grep -Fq 'actions/cache/restore@5a3ec84eff668545956fd18022155c47e93e2684' "${build_workflow}" || \
   fail 'build workflow 未固定 actions/cache/restore SHA'
 grep -Fq 'actions/cache/save@5a3ec84eff668545956fd18022155c47e93e2684' "${build_workflow}" || \
@@ -140,8 +144,21 @@ if grep -Fq 'grub-efi-arm64-bin' "${build_workflow}"; then
 fi
 grep -Fq 'LINUX_SOURCE_ARCHIVE=' "${CONFIG_DIR}/versions.env" || fail '缺少 GPL 对应源码资产名'
 grep -Fq 'bsdtar -cf -' "${REPO_ROOT}/scripts/build.sh" || fail '未生成完整已补丁内核源码归档'
-grep -Fq 'linux/drivers/platform/arm64/huawei-planck-ec.c' \
-  "${REPO_ROOT}/scripts/build.sh" || fail '源码归档未检查已补丁 Planck EC 源码'
+grep -Fq 'linux/arch/arm64/boot/dts/${device_dts}' \
+  "${REPO_ROOT}/scripts/build.sh" || fail '源码归档未检查目标设备树'
+if grep -Fq 'huawei-planck-ec.c' "${REPO_ROOT}/scripts/build.sh"; then
+  fail 'stable 7.3.4 构建不应再检查已移除的 Planck EC 源码'
+fi
+grep -Fq 'DEVICE_MODEL="PAK-AL09"' "${CONFIG_DIR}/device.env" || \
+  fail '设备配置不是当前 PAK-AL09 基线'
+grep -Fq 'DEVICE_DTB="qcom/sdm850-huawei-matebook-e-2019.dtb"' \
+  "${CONFIG_DIR}/device.env" || fail '设备配置未指向 PAK-AL09 上游设备树'
+grep -Fq 'DEVICE-PROFILE.env' "${REPO_ROOT}/scripts/build.sh" || \
+  fail '构建产物未包含设备配置'
+grep -Fq 'qcom,calibration-variant = "Huawei_Planck";' \
+  "${REPO_ROOT}/scripts/build-kernel.sh" || fail '构建前未校验 PAK-AL09 Wi-Fi 校准名'
+grep -Fq 'compatible = "innolux,p120zdg-bf1";' \
+  "${REPO_ROOT}/scripts/build-kernel.sh" || fail '构建前未校验 PAK-AL09 面板兼容字符串'
 for setting in CONFIG_USB_DWC3=y CONFIG_USB_DWC3_QCOM=y CONFIG_PHY_QCOM_QMP=y \
   CONFIG_PHY_QCOM_QMP_USB=y CONFIG_PHY_QCOM_QUSB2=y CONFIG_USB_STORAGE=y CONFIG_USB_UAS=y; do
   grep -Fxq "${setting}" "${CONFIG_DIR}/kernel.fragment" || fail "USB-C 启动配置缺失：${setting}"

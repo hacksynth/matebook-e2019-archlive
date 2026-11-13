@@ -22,7 +22,7 @@ KERNEL_RELEASE="$(<"${WORK_DIR}/kernel-release")"
 
 [[ -s ${BOOT_DIR}/Image ]] || die "缺少内核 Image"
 [[ -s ${BOOT_DIR}/initramfs-live.img ]] || die "缺少 live initramfs"
-[[ -s ${BOOT_DIR}/dtb/${DEVICE_DTB} ]] || die "缺少 PAK-AL09 DTB"
+[[ -s ${BOOT_DIR}/dtb/${DEVICE_DTB} ]] || die "缺少 ${DEVICE_MODEL} DTB"
 [[ -s ${LIVE_DIR}/airootfs.sfs ]] || die "缺少 squashfs"
 [[ -s ${LIVE_DIR}/firmware-mode ]] || die "缺少固件构建模式记录"
 validate_aa64_efi "${BOOT_DIR}/BOOTAA64.EFI"
@@ -44,7 +44,15 @@ if [[ $(<"${LIVE_DIR}/firmware-mode") == injected ]]; then
   firmware_mode="已从构建者指定的 VENDOR_FIRMWARE_DIR 注入；见 squashfs 内 vendor-firmware.sha256"
 fi
 cat >"${ISO_ROOT}/BUILD-INFO.txt" <<BUILD_INFO
-介质：HUAWEI MateBook E 2019 PAK-AL09 Arch Linux ARM Live
+介质：${DEVICE_VENDOR} ${DEVICE_PRODUCT} ${DEVICE_MODEL} Arch Linux ARM Live
+产品版本：${DEVICE_PRODUCT_VERSION}
+SoC：${DEVICE_SOC}
+内存基线：${DEVICE_MEMORY}
+显示：${DEVICE_DISPLAY}
+内部存储：${DEVICE_INTERNAL_STORAGE}
+触摸屏：${DEVICE_TOUCHSCREEN}
+Wi-Fi/蓝牙：${DEVICE_WIFI_BLUETOOTH}
+BIOS 验证基线：${DEVICE_BIOS_BASELINE}
 内核：${KERNEL_RELEASE}
 内核仓库：${LINUX_REPO}
 内核 ref：${LINUX_REF}

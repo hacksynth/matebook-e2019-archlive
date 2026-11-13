@@ -11,8 +11,9 @@ Generic AArch64 Arch Linux ARM rootfs 制作 dracut `dmsquash-live` 系统，并
 - `matebook-e2019-archlive-7.3.4.img.zst`：**推荐**的 GPT raw 镜像，
   含 128 MiB ESP 和 ext4 Live 分区；
 - `matebook-e2019-archlive-7.3.4.iso`：AA64 UEFI El Torito ISO；
-- `SHA256SUMS`、`BUILD-INFO.txt`、`SOURCE-LOCK.env`、`packages.txt`、
-  `kernel.config`、`linux-source-7.3.4.tar.zst`（完整对应源码）和 ISO El Torito 检查报告。
+- `SHA256SUMS`、`BUILD-INFO.txt`、`SOURCE-LOCK.env`、`DEVICE-PROFILE.env`、
+  `packages.txt`、`kernel.config`、`linux-source-7.3.4.tar.zst`（完整对应源码）
+  和 ISO El Torito 检查报告。
 
 ISO 和 raw 镜像都使用未签名的 GRUB AA64 (`EFI/BOOT/BOOTAA64.EFI`)，显式加载
 `qcom/sdm850-huawei-matebook-e-2019.dtb`，再启动同一份 `Image`、dracut initramfs
@@ -46,11 +47,30 @@ v0.2.0 的目标是“**干净地跟踪最新稳定内核**”：只使用上游
 Fn 键、部分 USB-C 角色切换）在 v0.2.0 中可能不可用；这些功能仍保留在 v0.1.0。
 如果你需要 EC 功能优先，请使用 v0.1.0 或等待后续把 EC 驱动移植到 7.3。
 
+## 当前实机硬件基线
+
+2026-11-13 在目标设备上核对到以下配置；不含序列号、UUID 等唯一标识：
+
+| 项目 | 当前设备 |
+|---|---|
+| 型号 | HUAWEI MateBook E 2019 PAK-AL09，产品版本 M1010 |
+| SoC / 内存 | Snapdragon 850，8 GiB |
+| 显示 | 2160 × 1440，Adreno 630，上游 `innolux,p120zdg-bf1` + `sn65dsi86` 链路 |
+| 内部存储 | 256 GB UFS；另有一个 SD 读卡器 |
+| 触摸 | Goodix GT7380，I2C-HID（ACPI/HID ID `GXTP7380`） |
+| Wi‑Fi / 蓝牙 | Qualcomm WCN3990，`ath10k` + QCA UART |
+| BIOS 验证基线 | 1.15（2019-04-26），UEFI |
+
+设备型号、设备树和固件根目录集中在
+[`configs/device.env`](configs/device.env)。内核缓存键包含该文件；最终介质还会附带
+`DEVICE-PROFILE.env`，便于确认产物对应的目标设备。
+
 ## 锁定上游、URL 与验证模型
 
-锁定值集中在 [`configs/versions.env`](configs/versions.env)，下载逻辑在
+网络输入锁定在 [`configs/versions.env`](configs/versions.env)，目标设备基线在
+[`configs/device.env`](configs/device.env)，下载逻辑在
 [`scripts/fetch-sources.sh`](scripts/fetch-sources.sh)。任何更新都应作为人工审查的
-供应链变更提交。
+供应链或设备配置变更提交。
 
 | 输入 | 固定版本 / URL | 构建时验证 |
 |---|---|---|
@@ -71,8 +91,9 @@ ALARM 的下载镜像只提供 HTTP，完整 OpenPGP 验证才是 rootfs 的真�
 2. 合并 arm64 `defconfig` 与 [`configs/kernel.fragment`](configs/kernel.fragment)
    （Live/OverlayFS/SquashFS、initramfs zstd 解压、模块压缩、USB-C 根设备所需
    DWC3/QCOM glue、QMP/QUSB2 PHY、USB Storage/UAS、显示/触控驱动）；
-3. 交叉编译 `Image`、modules 与 PAK-AL09 DTB，剥离调试符号并 zstd 压缩模块；
-4. 生成应用全部改动后的完整 GPL 对应源码归档；
+3. 交叉编译 `Image`、modules 与设备配置指定的 PAK-AL09 DTB，剥离调试符号并
+   zstd 压缩模块；
+4. 生成包含上游 PAK-AL09 设备树的完整 GPL 对应源码归档；
 5. 在 qemu-aarch64 chroot 中展开 rootfs、安装 ALARM 包，用 ALARM 原生 AArch64
    GRUB 生成 `BOOTAA64.EFI`（内嵌提供 `devicetree` 命令的 `fdt.mod`），由 dracut
    的 `dmsquash-live` 生成 live initramfs（dracut-ng ≥ 103 的目录是
