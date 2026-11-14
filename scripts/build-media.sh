@@ -105,7 +105,7 @@ rm -f -- "${RAW_IMAGE}"
 truncate -s "${raw_mib}M" "${RAW_IMAGE}"
 sgdisk --clear \
   --new=1:1MiB:+128MiB --typecode=1:EF00 --change-name=1:EFI \
-  --new=2:0:0 --typecode=2:8300 --change-name=2:PAKAL09_LIVE \
+  --new=2:0:0 --typecode=2:8300 "--change-name=2:${VOLUME_LABEL}" \
   "${RAW_IMAGE}"
 loop_device="$(losetup --find --show --partscan "${RAW_IMAGE}")"
 udevadm settle

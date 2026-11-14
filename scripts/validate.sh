@@ -13,6 +13,9 @@ fail() {
   failures=$((failures + 1))
 }
 
+[[ ${VOLUME_LABEL} =~ ^[A-Z0-9_]{1,11}$ ]] || \
+  fail 'VOLUME_LABEL must be 1-11 characters for FAT32 compatibility'
+
 mapfile -d '' scripts < <(find "${REPO_ROOT}/scripts" -type f -name '*.sh' -print0 | LC_ALL=C sort -z)
 for script in "${scripts[@]}"; do
   bash -n "${script}" || fail "bash -n: ${script}"
