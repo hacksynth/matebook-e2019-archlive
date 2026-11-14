@@ -23,34 +23,39 @@ jobs:
         shell: powershell
         run: |
           $ErrorActionPreference = 'Stop'
-          winget source update --disable-interactivity
-          $adkArgs = @(
-            'install',
-            '--id', 'Microsoft.WindowsADK',
-            '--version', '10.1.26100.9457',
-            '--exact',
-            '--silent',
-            '--accept-package-agreements',
-            '--accept-source-agreements',
-            '--disable-interactivity'
-          )
-          & winget @adkArgs
-          if ($LASTEXITCODE -ne 0) {
-            throw "Windows ADK installation failed: $LASTEXITCODE"
+          function Install-MsiPackage {
+            param(
+              [string]$Url,
+              [string]$ExpectedSha256,
+              [string]$FileName,
+              [string[]]$Arguments
+            )
+            $output = Join-Path $env:RUNNER_TEMP $FileName
+            Invoke-WebRequest -Uri $Url -OutFile $output -UseBasicParsing
+            $actual = (Get-FileHash -LiteralPath $output -Algorithm SHA256).Hash
+            if ($actual -ne $ExpectedSha256) {
+              throw "Checksum mismatch for ${FileName}: $actual"
+            }
+            $process = Start-Process -FilePath $output -ArgumentList $Arguments `
+              -Wait -PassThru -NoNewWindow
+            if ($process.ExitCode -notin @(0, 3010)) {
+              throw "Installer $FileName failed: $($process.ExitCode)"
+            }
           }
-          $winPeArgs = @(
-            'install',
-            '--id', 'Microsoft.WindowsADK.WinPEAddon',
-            '--version', '10.1.26100.9457',
-            '--exact',
-            '--silent',
-            '--accept-package-agreements',
-            '--accept-source-agreements',
-            '--disable-interactivity'
-          )
-          & winget @winPeArgs
-          if ($LASTEXITCODE -ne 0) {
-            throw "WinPE add-on installation failed: $LASTEXITCODE"
+          Install-MsiPackage `
+            -Url 'https://go.microsoft.com/fwlink/?linkid=2289980' `
+            -ExpectedSha256 'AC6A930FDB5C2980BA5FEFE606D47EDAAFCF5F647B4337411500D158EA77300F' `
+            -FileName 'adksetup.exe' `
+            -Arguments @('/quiet', '/features', 'OptionId.DeploymentTools')
+          Install-MsiPackage `
+            -Url 'https://go.microsoft.com/fwlink/?linkid=2289981' `
+            -ExpectedSha256 'D4DE67ACC83DE253CCC941DD0590808D83726BDD8EA768A374A7BEAFF7949D6A' `
+            -FileName 'winpesetup.exe' `
+            -Arguments @('/quiet')
+          $copyPe = Join-Path ${env:ProgramFiles(x86)} `
+            'Windows Kits\10\Assessment and Deployment Kit\Windows Preinstallation Environment\copype.cmd'
+          if (-not (Test-Path -LiteralPath $copyPe)) {
+            throw "WinPE build tools were not installed: $copyPe"
           }
 
       - name: Build ARM64 recovery ISO
