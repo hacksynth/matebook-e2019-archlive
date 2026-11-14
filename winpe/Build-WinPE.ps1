@@ -186,26 +186,27 @@ try {
         }
     }
 
-    $installedDrivers = @(Get-WindowsDriver -Path $mountDirectory)
-    $installedNames = @($installedDrivers | ForEach-Object {
-        [IO.Path]::GetFileName($_.Driver)
-    })
-    $requiredDrivers = @(
-        'storufs.inf',
-        'sdbus.inf',
-        'sdstor.inf',
-        'usbxhci.inf',
-        'usbhub3.inf',
-        'usbstor.inf',
-        'hidi2c.inf',
-        'qci2c850.inf',
-        'qcgpio850.inf',
-        'qcuart850.inf',
-        'qcusbc850.inf'
+    $driverStore = Join-Path $mountDirectory 'Windows\System32\DriverStore\FileRepository'
+    $installedRepositories = @(
+        Get-ChildItem -LiteralPath $driverStore -Directory -ErrorAction Stop |
+            Select-Object -ExpandProperty Name
     )
-    foreach ($driver in $requiredDrivers) {
-        if ($installedNames -notcontains $driver) {
-            throw "Required ARM64 driver was not injected: $driver"
+    $requiredDrivers = @(
+        'storufs.inf_arm64_*',
+        'sdbus.inf_arm64_*',
+        'sdstor.inf_arm64_*',
+        'usbxhci.inf_arm64_*',
+        'usbhub3.inf_arm64_*',
+        'usbstor.inf_arm64_*',
+        'hidi2c.inf_arm64_*',
+        'qci2c850.inf_arm64_*',
+        'qcgpio850.inf_arm64_*',
+        'qcuart850.inf_arm64_*',
+        'qcusbc850.inf_arm64_*'
+    )
+    foreach ($driverPattern in $requiredDrivers) {
+        if (-not ($installedRepositories | Where-Object { $_ -like $driverPattern })) {
+            throw "Required ARM64 driver was not injected: $driverPattern"
         }
     }
 
