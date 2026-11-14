@@ -126,6 +126,16 @@ $bootWim = Join-Path $mediaDirectory 'sources\boot.wim'
 $mountDirectory = Join-Path $workRoot 'mount'
 New-Item -ItemType Directory -Force -Path $mountDirectory | Out-Null
 if (-not (Test-Path -LiteralPath $bootWim)) {
+    $sourceWinPeWim = Get-ChildItem -LiteralPath $winPeRoot -Recurse -File -Filter 'winpe.wim' |
+        Where-Object { $_.FullName -match '\\arm64\\' } |
+        Select-Object -First 1
+    if (-not $sourceWinPeWim) {
+        throw "ARM64 WinPE base image not found under: $winPeRoot"
+    }
+    New-Item -ItemType Directory -Force -Path (Split-Path $bootWim -Parent) | Out-Null
+    Copy-Item -LiteralPath $sourceWinPeWim.FullName -Destination $bootWim -Force
+}
+if (-not (Test-Path -LiteralPath $bootWim)) {
     throw "WinPE boot image not generated: $bootWim"
 }
 
