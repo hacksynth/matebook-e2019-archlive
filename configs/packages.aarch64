@@ -7,6 +7,7 @@ curl
 device-mapper
 dracut
 e2fsprogs
+exfatprogs
 grub
 iproute2
 iwd

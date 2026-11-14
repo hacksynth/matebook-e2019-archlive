@@ -65,6 +65,7 @@ expected_files=(
   README.md LICENSE .gitignore
   configs/versions.env configs/device.env configs/kernel.fragment configs/dracut.conf
   configs/grub.cfg configs/grub-embedded.cfg configs/packages.aarch64
+  configs/wcn3990.modules-load
   scripts/fetch-sources.sh scripts/build-kernel.sh scripts/prepare-rootfs.sh
   scripts/build-media.sh scripts/build.sh scripts/validate.sh
   winpe/README.md winpe/Build-WinPE.ps1 winpe/startnet.cmd
@@ -96,6 +97,28 @@ grep -Fq 'clk_ignore_unused' "${CONFIG_DIR}/grub.cfg" || fail 'GRUB 缺少 clk_i
 grep -Fq 'dmsquash-live' "${CONFIG_DIR}/dracut.conf" || fail 'dracut 未启用 dmsquash-live'
 grep -Fq '70dmsquash-live' "${REPO_ROOT}/scripts/prepare-rootfs.sh" || \
   fail 'prepare-rootfs 未兼容 dracut-ng 的 70dmsquash-live 目录'
+for setting in CONFIG_EXFAT_FS=y CONFIG_EXFAT_DEFAULT_IOCHARSET='"utf8"' CONFIG_NLS_UTF8=y; do
+  grep -Fxq "${setting}" "${CONFIG_DIR}/kernel.fragment" || \
+    fail "kernel fragment missing exFAT config: ${setting}"
+done
+for setting in 'CONFIG_EXFAT_FS=y' 'CONFIG_NLS_UTF8=y'; do
+  grep -Fq "'${setting}'" "${REPO_ROOT}/scripts/build-kernel.sh" || \
+    fail "build-kernel does not assert exFAT dependency: ${setting}"
+done
+grep -Fq 'exfat' "${CONFIG_DIR}/dracut.conf" || \
+  fail 'dracut does not include exFAT support'
+grep -Fxq 'exfatprogs' "${CONFIG_DIR}/packages.aarch64" || \
+  fail 'Live rootfs does not include exfatprogs'
+for setting in CONFIG_CFG80211=m CONFIG_MAC80211=m CONFIG_ATH10K=m CONFIG_ATH10K_SNOC=m; do
+  grep -Fxq "${setting}" "${CONFIG_DIR}/kernel.fragment" || \
+    fail "kernel fragment missing WCN3990 dependency: ${setting}"
+  grep -Fq "'${setting}'" "${REPO_ROOT}/scripts/build-kernel.sh" || \
+    fail "build-kernel does not assert WCN3990 dependency: ${setting}"
+done
+grep -Fxq 'ath10k_snoc' "${CONFIG_DIR}/wcn3990.modules-load" || \
+  fail 'WCN3990 module is not configured for post-switchroot loading'
+grep -Fq 'wcn3990.modules-load' "${REPO_ROOT}/scripts/prepare-rootfs.sh" || \
+  fail 'prepare-rootfs does not install WCN3990 modules-load configuration'
 for setting in CONFIG_RD_ZSTD=y CONFIG_MODULE_COMPRESS_ZSTD=y; do
   grep -Fxq "${setting}" "${CONFIG_DIR}/kernel.fragment" || \
     fail "内核 fragment 缺少 initramfs/模块压缩配置：${setting}"
