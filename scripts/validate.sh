@@ -71,6 +71,7 @@ expected_files=(
   winpe/drivers/manifest.csv
   .github/workflows/build.yml .github/workflows/validate.yml
   .github/workflows/publish-release.yml .github/workflows/build-winpe-arm64.yml
+  .github/workflows/build-winpe-arm64-win10.yml
 )
 for relative in "${expected_files[@]}"; do
   [[ -f ${REPO_ROOT}/${relative} ]] || fail "缺少文件：${relative}"
@@ -172,6 +173,8 @@ for firmware_file in qcadsp850.mbn qccdsp850.mbn qcdsp1v2850.mbn qcdsp2850.mbn \
 done
 grep -Fq 'Build-WinPE.ps1' "${REPO_ROOT}/.github/workflows/build-winpe-arm64.yml" || \
   fail 'ARM64 WinPE workflow 未调用构建脚本'
+grep -Fq 'Build-WinPE.ps1' "${REPO_ROOT}/.github/workflows/build-winpe-arm64-win10.yml" || \
+  fail 'Win10 ARM64 WinPE workflow 未调用构建脚本'
 for winpe_driver in storufs.inf sdbus.inf sdstor.inf hidi2c.inf; do
   if ! find "${REPO_ROOT}/winpe/drivers" -type f -iname "${winpe_driver}" -print -quit | grep -q .; then
     fail "WinPE 驱动包缺少启动/存储驱动：${winpe_driver}"

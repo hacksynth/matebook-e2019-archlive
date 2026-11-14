@@ -39,3 +39,8 @@ checking the Microsoft and hardware-vendor license terms.
 
 Run the `Build ARM64 Recovery PE` workflow manually. It uses the matched
 Windows ADK and Windows PE add-on version `10.1.26100.9457`.
+
+The `Build ARM64 Recovery PE (Win10 2004)` workflow is a compatibility build
+using the Windows 10 2004 ADK and Windows PE add-on `10.1.19041.1`. It keeps
+the same drivers and tools so both WinRE generations can be tested on the
+device.

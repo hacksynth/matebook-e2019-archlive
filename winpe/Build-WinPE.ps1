@@ -4,7 +4,9 @@ param(
     [string]$RepositoryRoot,
 
     [Parameter(Mandatory = $true)]
-    [string]$OutputDirectory
+    [string]$OutputDirectory,
+
+    [string]$AdkVersion = '10.1.26100.9457'
 )
 
 $ErrorActionPreference = 'Stop'
@@ -262,8 +264,8 @@ $failedDriverCount = @($driverFailures).Count
 $info = @"
 MateBook E 2019 ARM64 Recovery PE
 Architecture: ARM64
-ADK: 10.1.26100.9457
-WinPE: 10.1.26100.9457
+ADK: $AdkVersion
+WinPE: $AdkVersion
 ISO size: $sizeMiB MiB
 SHA256: $($hash.Hash)
 Driver INF count: $($driverInfs.Count)
