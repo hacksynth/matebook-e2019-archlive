@@ -114,7 +114,10 @@ if (Test-Path -LiteralPath $workRoot) {
 }
 
 New-Item -ItemType Directory -Force -Path $OutputDirectory | Out-Null
-Invoke-Native -FilePath cmd.exe -Arguments @('/d', '/c', "`"$copyPe`" arm64 `"$workRoot`"")
+$adkEnvironment = 'set "WinPERoot={0}" && set "OSCDImgRoot={1}" && set "DISM={2}"' -f `
+    $winPeRoot, $oscdImgRoot, $dismRoot
+$copyPeCommand = '{0} && "{1}" arm64 "{2}"' -f $adkEnvironment, $copyPe, $workRoot
+Invoke-Native -FilePath cmd.exe -Arguments @('/d', '/c', $copyPeCommand)
 
 $mediaDirectory = Join-Path $workRoot 'media'
 $bootWim = Join-Path $mediaDirectory 'sources\boot.wim'
@@ -216,9 +219,9 @@ $outputIso = Join-Path $OutputDirectory 'MateBook-E2019-ARM64-Recovery.iso'
 if (Test-Path -LiteralPath $outputIso) {
     Remove-Item -LiteralPath $outputIso -Force
 }
-Invoke-Native -FilePath cmd.exe -Arguments @(
-    '/d', '/c', "`"$makeWinPeMedia`" /ISO `"$workRoot`" `"$outputIso`""
-)
+$makeMediaCommand = '{0} && "{1}" /ISO "{2}" "{3}"' -f `
+    $adkEnvironment, $makeWinPeMedia, $workRoot, $outputIso
+Invoke-Native -FilePath cmd.exe -Arguments @('/d', '/c', $makeMediaCommand)
 
 $hash = Get-FileHash -LiteralPath $outputIso -Algorithm SHA256
 $sizeMiB = [math]::Round((Get-Item -LiteralPath $outputIso).Length / 1MB, 2)
