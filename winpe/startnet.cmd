@@ -1,7 +1,7 @@
 @echo off
 setlocal
 set "PE_TOOLS=X:\Program Files\RecoveryPE"
-set "PATH=%PE_TOOLS%\Explorer++;%PATH%"
+set "PATH=%PE_TOOLS%\7-Zip;%PE_TOOLS%\Explorer++;%PATH%"
 
 echo Initializing Windows PE...
 wpeinit
@@ -36,15 +36,15 @@ echo Physical disks and volumes:
 powershell.exe -NoLogo -NoProfile -ExecutionPolicy Bypass -Command "Get-Disk | Format-Table -AutoSize; Get-Volume | Sort-Object DriveLetter | Format-Table -AutoSize"
 echo.
 
-if exist "%PE_TOOLS%\Explorer++\Explorer++.exe" (
-    echo Starting Explorer++ graphical file manager...
-    start "" /wait "%PE_TOOLS%\Explorer++\Explorer++.exe"
-    >C:\RecoveryPE\explorerpp-launch.txt echo Explorer++ exit code: %ERRORLEVEL%
+if exist "%PE_TOOLS%\7-Zip\7zFM.exe" (
+    echo Starting 7-Zip graphical file manager...
+    start "" /wait "%PE_TOOLS%\7-Zip\7zFM.exe"
+    >C:\RecoveryPE\7zip-file-manager-launch.txt echo 7zFM exit code: %ERRORLEVEL%
 )
 
 :command_prompt
 echo The included ARM64 drivers are also available at X:\Drivers.
 echo The diagnostic report is saved to C:\RecoveryPE\pe-diagnostics.txt.
-echo Use Explorer++ or type diskpart, notepad, or powershell.
+echo Use the graphical file manager or type diskpart, notepad, or powershell.
 echo.
 cmd.exe

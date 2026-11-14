@@ -11,7 +11,7 @@ The generated ISO:
 - injects the local Qualcomm ARM64 I2C, GPIO, SPI, UART, USB, WLAN, power,
   SMMU, and monitor driver packages into `boot.wim`;
 - copies the complete driver tree to `X:\Drivers` for offline recovery;
-- starts the ARM64 Explorer++ graphical file manager as a lightweight shell;
+- starts the ARM64 7-Zip graphical file manager as a lightweight shell;
 - writes storage and PnP diagnostics to
   `C:\RecoveryPE\pe-diagnostics.txt`;
 - enables WMI, .NET, PowerShell, DISM, storage management, scripting, HTA,
@@ -21,6 +21,11 @@ The generated ISO:
 The full Adreno WDDM graphics package is intentionally not injected. WinPE
 uses Microsoft's Basic Display Driver and does not run the full Windows
 desktop graphics stack.
+
+Explorer++'s current ARM64 build depends on Direct2D/DXGI components that are
+not present in the base WinPE image. 7-Zip File Manager is therefore used as
+the default graphical shell; Explorer++ remains available as an optional
+tool.
 
 Windows PE does not provide a general desktop or general Wi-Fi manager. The
 presence of a WLAN driver does not guarantee wireless networking in this
