@@ -73,8 +73,9 @@ $winPeRoot = Join-Path $adkRoot 'Windows Preinstallation Environment'
 $copyPe = Join-Path $winPeRoot 'copype.cmd'
 $makeWinPeMedia = Join-Path $winPeRoot 'MakeWinPEMedia.cmd'
 $oscdImgRoot = Join-Path $adkRoot 'Deployment Tools\amd64\Oscdimg'
+$dismRoot = Join-Path $adkRoot 'Deployment Tools\amd64\DISM'
 
-foreach ($requiredTool in @($copyPe, $makeWinPeMedia, $oscdImgRoot)) {
+foreach ($requiredTool in @($copyPe, $makeWinPeMedia, $oscdImgRoot, $dismRoot)) {
     if (-not (Test-Path -LiteralPath $requiredTool)) {
         throw "Windows ADK WinPE file not found: $requiredTool"
     }
@@ -84,6 +85,7 @@ foreach ($requiredTool in @($copyPe, $makeWinPeMedia, $oscdImgRoot)) {
 # environment into a fresh runner process.
 $env:WinPERoot = $winPeRoot
 $env:OSCDImgRoot = $oscdImgRoot
+$env:DISM = $dismRoot
 
 $identity = [Security.Principal.WindowsIdentity]::GetCurrent()
 $principal = New-Object Security.Principal.WindowsPrincipal($identity)
