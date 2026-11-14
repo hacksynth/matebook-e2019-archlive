@@ -72,12 +72,18 @@ $adkRoot = Join-Path ${env:ProgramFiles(x86)} 'Windows Kits\10\Assessment and De
 $winPeRoot = Join-Path $adkRoot 'Windows Preinstallation Environment'
 $copyPe = Join-Path $winPeRoot 'copype.cmd'
 $makeWinPeMedia = Join-Path $winPeRoot 'MakeWinPEMedia.cmd'
+$oscdImgRoot = Join-Path $adkRoot 'Deployment Tools\amd64\Oscdimg'
 
-foreach ($requiredTool in @($copyPe, $makeWinPeMedia)) {
+foreach ($requiredTool in @($copyPe, $makeWinPeMedia, $oscdImgRoot)) {
     if (-not (Test-Path -LiteralPath $requiredTool)) {
         throw "Windows ADK WinPE file not found: $requiredTool"
     }
 }
+
+# The ADK installers do not propagate the Deployment and Imaging Tools
+# environment into a fresh runner process.
+$env:WinPERoot = $winPeRoot
+$env:OSCDImgRoot = $oscdImgRoot
 
 $identity = [Security.Principal.WindowsIdentity]::GetCurrent()
 $principal = New-Object Security.Principal.WindowsPrincipal($identity)
