@@ -111,7 +111,7 @@ if (Test-Path -LiteralPath $workRoot) {
     Remove-Item -LiteralPath $resolvedWorkRoot -Recurse -Force
 }
 
-New-Item -ItemType Directory -Force -Path $workRoot, $OutputDirectory | Out-Null
+New-Item -ItemType Directory -Force -Path $OutputDirectory | Out-Null
 Invoke-Native -FilePath cmd.exe -Arguments @('/d', '/c', "`"$copyPe`" arm64 `"$workRoot`"")
 
 $mediaDirectory = Join-Path $workRoot 'media'
