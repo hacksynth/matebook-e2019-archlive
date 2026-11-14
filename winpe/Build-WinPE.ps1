@@ -71,12 +71,13 @@ function Add-WinPeOptionalComponent {
 $adkRoot = Join-Path ${env:ProgramFiles(x86)} 'Windows Kits\10\Assessment and Deployment Kit'
 $winPeRoot = Join-Path $adkRoot 'Windows Preinstallation Environment'
 $arm64MediaSource = Join-Path $winPeRoot 'arm64\media'
-$makeWinPeMedia = Join-Path $winPeRoot 'MakeWinPEMedia.cmd'
 $oscdImgToolRoot = Join-Path $adkRoot 'Deployment Tools\amd64\Oscdimg'
 $oscdImgRoot = Join-Path $adkRoot 'Deployment Tools\arm64\Oscdimg'
 $dismRoot = Join-Path $adkRoot 'Deployment Tools\amd64\DISM'
+$oscdImgExe = Join-Path $oscdImgToolRoot 'oscdimg.exe'
+$efiBootImage = Join-Path $oscdImgRoot 'efisys.bin'
 
-foreach ($requiredTool in @($arm64MediaSource, $makeWinPeMedia, $oscdImgToolRoot, $oscdImgRoot, $dismRoot)) {
+foreach ($requiredTool in @($arm64MediaSource, $oscdImgExe, $efiBootImage, $dismRoot)) {
     if (-not (Test-Path -LiteralPath $requiredTool)) {
         throw "Windows ADK WinPE file not found: $requiredTool"
     }
@@ -233,9 +234,17 @@ $outputIso = Join-Path $OutputDirectory 'MateBook-E2019-ARM64-Recovery.iso'
 if (Test-Path -LiteralPath $outputIso) {
     Remove-Item -LiteralPath $outputIso -Force
 }
-$makeMediaCommand = '{0} && "{1}" /ISO "{2}" "{3}"' -f `
-    $adkEnvironment, $makeWinPeMedia, $workRoot, $outputIso
-Invoke-Native -FilePath cmd.exe -Arguments @('/d', '/c', $makeMediaCommand)
+$bootData = '1#pEF,e,b"{0}"' -f $efiBootImage
+Invoke-Native -FilePath $oscdImgExe -Arguments @(
+    '-m',
+    '-o',
+    '-u2',
+    '-udfver102',
+    "-bootdata:$bootData",
+    '-lMATEBOOK_PE',
+    $mediaDirectory,
+    $outputIso
+)
 
 $hash = Get-FileHash -LiteralPath $outputIso -Algorithm SHA256
 $sizeMiB = [math]::Round((Get-Item -LiteralPath $outputIso).Length / 1MB, 2)
