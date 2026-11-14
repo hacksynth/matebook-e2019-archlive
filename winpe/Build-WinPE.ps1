@@ -70,12 +70,12 @@ function Add-WinPeOptionalComponent {
 
 $adkRoot = Join-Path ${env:ProgramFiles(x86)} 'Windows Kits\10\Assessment and Deployment Kit'
 $winPeRoot = Join-Path $adkRoot 'Windows Preinstallation Environment'
-$copyPe = Join-Path $winPeRoot 'copype.cmd'
+$arm64MediaSource = Join-Path $winPeRoot 'arm64\media'
 $makeWinPeMedia = Join-Path $winPeRoot 'MakeWinPEMedia.cmd'
 $oscdImgRoot = Join-Path $adkRoot 'Deployment Tools\amd64\Oscdimg'
 $dismRoot = Join-Path $adkRoot 'Deployment Tools\amd64\DISM'
 
-foreach ($requiredTool in @($copyPe, $makeWinPeMedia, $oscdImgRoot, $dismRoot)) {
+foreach ($requiredTool in @($arm64MediaSource, $makeWinPeMedia, $oscdImgRoot, $dismRoot)) {
     if (-not (Test-Path -LiteralPath $requiredTool)) {
         throw "Windows ADK WinPE file not found: $requiredTool"
     }
@@ -113,11 +113,13 @@ if (Test-Path -LiteralPath $workRoot) {
     Remove-Item -LiteralPath $resolvedWorkRoot -Recurse -Force
 }
 
-New-Item -ItemType Directory -Force -Path $OutputDirectory | Out-Null
+New-Item -ItemType Directory -Force -Path $workRoot, $OutputDirectory | Out-Null
 $adkEnvironment = 'set "WinPERoot={0}" && set "OSCDImgRoot={1}" && set "DISM={2}"' -f `
     $winPeRoot, $oscdImgRoot, $dismRoot
-$copyPeCommand = '{0} && "{1}" arm64 "{2}"' -f $adkEnvironment, $copyPe, $workRoot
-Invoke-Native -FilePath cmd.exe -Arguments @('/d', '/c', $copyPeCommand)
+
+# Avoid copype.cmd's architecture-specific DISM bootstrap. The installed
+# arm64\media tree already contains the boot image and boot files we need.
+Copy-Item -LiteralPath $arm64MediaSource -Destination (Join-Path $workRoot 'media') -Recurse -Force
 
 $mediaDirectory = Join-Path $workRoot 'media'
 $bootWim = Join-Path $mediaDirectory 'sources\boot.wim'
