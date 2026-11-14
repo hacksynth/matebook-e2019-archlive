@@ -114,7 +114,7 @@ if (Test-Path -LiteralPath $workRoot) {
 }
 
 New-Item -ItemType Directory -Force -Path $workRoot, $OutputDirectory | Out-Null
-$adkEnvironment = 'set "WinPERoot={0}" && set "OSCDImgRoot={1}" && set "DISM={2}"' -f `
+$adkEnvironment = 'set "WinPERoot={0}" && set "OSCDImgRoot={1}" && set "DISM={2}" && set "PATH={1};%PATH%"' -f `
     $winPeRoot, $oscdImgRoot, $dismRoot
 
 # Avoid copype.cmd's architecture-specific DISM bootstrap. The installed
