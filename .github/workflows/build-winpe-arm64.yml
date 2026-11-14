@@ -51,11 +51,20 @@ jobs:
             -Url 'https://go.microsoft.com/fwlink/?linkid=2289981' `
             -ExpectedSha256 'D4DE67ACC83DE253CCC941DD0590808D83726BDD8EA768A374A7BEAFF7949D6A' `
             -FileName 'winpesetup.exe' `
-            -Arguments @('/quiet')
+            -Arguments @(
+              '/quiet',
+              '/features',
+              'OptionId.WindowsPreinstallationEnvironment'
+            )
           $copyPe = Join-Path ${env:ProgramFiles(x86)} `
             'Windows Kits\10\Assessment and Deployment Kit\Windows Preinstallation Environment\copype.cmd'
           if (-not (Test-Path -LiteralPath $copyPe)) {
             throw "WinPE build tools were not installed: $copyPe"
+          }
+          $arm64Media = Join-Path ${env:ProgramFiles(x86)} `
+            'Windows Kits\10\Assessment and Deployment Kit\Windows Preinstallation Environment\arm64\media'
+          if (-not (Test-Path -LiteralPath $arm64Media)) {
+            throw "ARM64 WinPE media was not installed: $arm64Media"
           }
 
       - name: Build ARM64 recovery ISO
