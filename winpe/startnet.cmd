@@ -1,6 +1,7 @@
 @echo off
 setlocal
 set "PE_TOOLS=X:\Program Files\RecoveryPE"
+set "PATH=%PE_TOOLS%\Explorer++;%PATH%"
 
 echo Initializing Windows PE...
 wpeinit
@@ -14,6 +15,19 @@ echo.
 where powershell.exe >nul 2>&1
 if errorlevel 1 goto command_prompt
 
+if exist X:\Windows\System32\pnputil.exe (
+    echo Rescanning plug-and-play devices...
+    pnputil.exe /scan-devices
+)
+
+>X:\rescan-storage.txt echo rescan
+>X:\rescan-storage.txt echo list disk
+>X:\rescan-storage.txt echo exit
+if exist X:\Windows\System32\diskpart.exe (
+    echo Rescanning storage...
+    diskpart.exe /s X:\rescan-storage.txt
+)
+
 if exist "%PE_TOOLS%\diagnose.ps1" (
     powershell.exe -NoLogo -NoProfile -ExecutionPolicy Bypass -File "%PE_TOOLS%\diagnose.ps1"
 )
@@ -24,7 +38,8 @@ echo.
 
 if exist "%PE_TOOLS%\Explorer++\Explorer++.exe" (
     echo Starting Explorer++ graphical file manager...
-    start "" "%PE_TOOLS%\Explorer++\Explorer++.exe"
+    start "" /wait "%PE_TOOLS%\Explorer++\Explorer++.exe"
+    >C:\RecoveryPE\explorerpp-launch.txt echo Explorer++ exit code: %ERRORLEVEL%
 )
 
 :command_prompt

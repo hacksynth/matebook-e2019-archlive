@@ -38,23 +38,19 @@ Add-Section 'Partitions' {
     Get-Partition | Sort-Object DiskNumber, PartitionNumber | Format-Table -AutoSize
 }
 Add-Section 'Storage and input devices' {
-    Get-PnpDevice -PresentOnly -ErrorAction Stop |
-        Where-Object {
-            $_.Class -in @('SDHOST', 'SCSIAdapter', 'DiskDrive', 'USB', 'HIDClass', 'Display')
-        } |
-        Select-Object Class, FriendlyName, Status, InstanceId |
-        Sort-Object Class, FriendlyName |
-        Format-Table -AutoSize
+    & pnputil.exe /enum-devices /connected
 }
 Add-Section 'Qualcomm drivers' {
-    Get-CimInstance Win32_PnPSignedDriver |
-        Where-Object {
-            $_.DriverProviderName -match 'Qualcomm|Atheros|Microsoft' -and
-            $_.DeviceName -match 'Qualcomm|SD|UFS|USB|HID|Adreno|Wi-Fi'
-        } |
-        Select-Object DeviceName, DeviceClass, DriverProviderName, InfName, DriverVersion |
-        Sort-Object DeviceClass, DeviceName |
-        Format-Table -AutoSize
+    & pnputil.exe /enum-drivers
+}
+Add-Section 'Storage driver services' {
+    foreach ($serviceName in @('sdbus', 'sdstor', 'storufs', 'disk')) {
+        "--- $serviceName ---"
+        & sc.exe query $serviceName
+    }
+}
+Add-Section 'ACPI QCOM2466 enum registry' {
+    & reg.exe query 'HKLM\SYSTEM\CurrentControlSet\Enum\ACPI\QCOM2466' /s
 }
 Add-Section 'Errors' {
     Get-WinEvent -FilterHashtable @{
@@ -68,3 +64,8 @@ Add-Section 'Errors' {
 
 Write-Host ''
 Write-Host "Diagnostics written to $output"
+
+$setupApi = 'X:\Windows\INF\setupapi.dev.log'
+if (Test-Path -LiteralPath $setupApi) {
+    Copy-Item -LiteralPath $setupApi -Destination (Join-Path $targetDirectory 'setupapi.dev.log') -Force
+}
