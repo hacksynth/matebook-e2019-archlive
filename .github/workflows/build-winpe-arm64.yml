@@ -1,0 +1,70 @@
+name: Build ARM64 Recovery PE
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: winpe-arm64-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: windows-2022
+    timeout-minutes: 120
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+
+      - name: Install matched Windows ADK and WinPE add-on
+        shell: powershell
+        run: |
+          $ErrorActionPreference = 'Stop'
+          winget source update --disable-interactivity
+          $adkArgs = @(
+            'install',
+            '--id', 'Microsoft.WindowsADK',
+            '--version', '10.1.26100.9457',
+            '--exact',
+            '--silent',
+            '--accept-package-agreements',
+            '--accept-source-agreements',
+            '--disable-interactivity'
+          )
+          & winget @adkArgs
+          if ($LASTEXITCODE -ne 0) {
+            throw "Windows ADK installation failed: $LASTEXITCODE"
+          }
+          $winPeArgs = @(
+            'install',
+            '--id', 'Microsoft.WindowsADK.WinPEAddon',
+            '--version', '10.1.26100.9457',
+            '--exact',
+            '--silent',
+            '--accept-package-agreements',
+            '--accept-source-agreements',
+            '--disable-interactivity'
+          )
+          & winget @winPeArgs
+          if ($LASTEXITCODE -ne 0) {
+            throw "WinPE add-on installation failed: $LASTEXITCODE"
+          }
+
+      - name: Build ARM64 recovery ISO
+        shell: powershell
+        run: |
+          .\winpe\Build-WinPE.ps1 `
+            -RepositoryRoot $env:GITHUB_WORKSPACE `
+            -OutputDirectory (Join-Path $env:GITHUB_WORKSPACE 'out-winpe')
+
+      - name: Upload ARM64 recovery PE
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: matebook-e2019-arm64-recovery-pe
+          path: out-winpe/
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 14

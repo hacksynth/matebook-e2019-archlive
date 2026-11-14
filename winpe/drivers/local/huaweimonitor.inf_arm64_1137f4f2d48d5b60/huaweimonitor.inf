@@ -1,0 +1,61 @@
+; Copyright (c) Huawei Corporation
+; LCD Monitor INF/Color Profile
+
+[version]
+signature="$WINDOWS NT$"
+Class=Monitor
+ClassGuid={4D36E96E-E325-11CE-BFC1-08002BE10318}
+Provider=%Huawei%
+CatalogFile=HWMonitor.CAT
+DriverVer = 02/25/2019,19.2.25.1
+
+[DestinationDirs]
+DefaultDestDir  = 11
+LCD.CopyFiles = 23         ; System\Color directory
+
+[SourceDisksNames]
+1=%SRCDISK%
+
+[Manufacturer]
+%Huawei%=Huawei,NTarm64
+
+
+[Huawei.NTarm64]                                            
+%KCNALPCMN1%   = KCNALPCMN1.Install.NTarm64, Monitor\CMN7801   ; CMN         No color profile
+%KCNALPCMN2%   = KCNALPCMN2.Install.NTarm64, Monitor\CMN7802   ; CMN         No color profile
+
+[ControlFlags]
+ExcludeFromSelect=*  ; Initialization of all display model-specfic information 
+
+
+[KCNALPCMN1.Install.NTarm64]              
+AddReg=KcnalpScaleFactor
+
+[KCNALPCMN1.Install.NTarm64.Services]
+Include=monitor.inf
+Needs=PnPMonitor.Install.Services
+
+[KCNALPCMN2.Install.NTarm64]              
+AddReg=KcnalpScaleFactor
+
+[KCNALPCMN2.Install.NTarm64.Services]
+Include=monitor.inf
+Needs=PnPMonitor.Install.Services
+
+[KcnalpScaleFactor]
+HKR,,PreferredScaleFactor,%REG_DWORD%, 150
+
+[Strings]
+; Non-Localizable Strings
+REG_SZ         = 0x00000000
+REG_MULTI_SZ   = 0x00010000
+REG_EXPAND_SZ  = 0x00020000
+REG_BINARY     = 0x00000001
+REG_DWORD      = 0x00010001
+
+SRCDISK   = "Monitor INF File"
+
+KCNALPCMN1   = "Huawei PnP Monitor"
+KCNALPCMN2   = "Huawei PnP Monitor"
+
+Huawei    = "Huawei"
