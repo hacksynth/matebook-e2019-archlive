@@ -106,10 +106,11 @@ AMD/NVIDIA/Intel 等无关平台的固件拆分包，只保留 Qualcomm/Atheros�
 
 ## 固件：缺失影响与法律边界
 
-**本仓库及默认 GitHub Actions 绝不下载、提取或发布华为/高通/Windows/Android
-设备专有固件。** 镜像只安装可再分发的 `linux-firmware-qcom` 与
-`linux-firmware-atheros`，它们不能替代 PAK-AL09 设备专用 blob。上游设备树引用的
-典型路径包括：
+本私有仓库的 [`vendor-firmware/`](vendor-firmware/) 保存从当前设备 Windows
+驱动库提取的 PAK-AL09 专用固件，仅用于本仓库的受控构建。**不得把仓库改回公开、
+不得公开分发这些文件，也不要将含固件的镜像或 Release 分享给无权限的第三方。**
+可再分发的 `linux-firmware-qcom` 与 `linux-firmware-atheros` 不能替代这些设备专用
+blob。上游设备树引用的典型路径包括：
 
 ```text
 /usr/lib/firmware/qcom/sdm850/HUAWEI/AL09/qcadsp850.mbn
@@ -123,8 +124,8 @@ AMD/NVIDIA/Intel 等无关平台的固件拆分包，只保留 Qualcomm/Atheros�
 ```
 
 缺少这些文件时，GPU 加速、音频 DSP、传感器 DSP、调制解调器、IPA 网络加速、视频
-编解码等功能可能不可用；Wi-Fi/蓝牙还可能需要设备校准数据。仅在你**已经合法取得
-且许可证允许自己使用**这些文件时，才可从本地目录注入：
+编解码等功能可能不可用；Wi-Fi/蓝牙还可能需要设备校准数据。构建介质阶段检测到
+仓库内 `vendor-firmware/` 时会自动注入；也可用环境变量覆盖目录：
 
 ```bash
 sudo VENDOR_FIRMWARE_DIR=/absolute/path/to/firmware-tree bash scripts/build.sh

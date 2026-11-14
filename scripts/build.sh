@@ -60,6 +60,11 @@ build_kernel_stage() {
 
 build_media_stage() {
   [[ -s ${WORK_DIR}/kernel-release ]] || die "缺少内核构建结果；请先以 STAGE=kernel 构建"
+  # 私有仓库可在 vendor-firmware/ 保存当前设备固件；显式环境变量仍可覆盖该目录。
+  if [[ -z ${VENDOR_FIRMWARE_DIR:-} && -d ${REPO_ROOT}/vendor-firmware ]]; then
+    export VENDOR_FIRMWARE_DIR="${REPO_ROOT}/vendor-firmware"
+    log "使用私有仓库内的设备固件：${VENDOR_FIRMWARE_DIR}"
+  fi
   bash "${SCRIPT_DIR}/prepare-rootfs.sh"
   if ((clean_intermediates)); then
     log "低磁盘模式：squashfs/initramfs 完成，删除展开 rootfs 与模块 staging"

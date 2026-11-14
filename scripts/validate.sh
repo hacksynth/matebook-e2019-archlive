@@ -158,6 +158,13 @@ grep -Fq 'DEVICE_DTB="qcom/sdm850-huawei-matebook-e-2019.dtb"' \
   "${CONFIG_DIR}/device.env" || fail '设备配置未指向 PAK-AL09 上游设备树'
 grep -Fq 'DEVICE-PROFILE.env' "${REPO_ROOT}/scripts/build.sh" || \
   fail '构建产物未包含设备配置'
+grep -Fq 'export VENDOR_FIRMWARE_DIR="${REPO_ROOT}/vendor-firmware"' \
+  "${REPO_ROOT}/scripts/build.sh" || fail '构建未自动使用私有仓库固件目录'
+for firmware_file in qcadsp850.mbn qccdsp850.mbn qcdsp1v2850.mbn qcdsp2850.mbn \
+  qcslpi850.mbn qcdxkmsuc850.mbn ipa_fws.elf qcvss850.mbn; do
+  [[ -s ${REPO_ROOT}/vendor-firmware/qcom/sdm850/HUAWEI/AL09/${firmware_file} ]] || \
+    fail "缺少 PAK-AL09 专有固件：${firmware_file}"
+done
 grep -Fq 'qcom,calibration-variant = "Huawei_Planck";' \
   "${REPO_ROOT}/scripts/build-kernel.sh" || fail '构建前未校验 PAK-AL09 Wi-Fi 校准名'
 grep -Fq 'compatible = "innolux,p120zdg-bf1";' \
@@ -178,7 +185,8 @@ if [[ -n ${AA64_EFI_PATH:-} || -f ${efi_to_check} ]]; then
 fi
 
 large_file="$(find "${REPO_ROOT}" \
-  \( -path "${REPO_ROOT}/.work" -o -path "${REPO_ROOT}/.cache" -o -path "${REPO_ROOT}/out" \) -prune -o \
+  \( -path "${REPO_ROOT}/.work" -o -path "${REPO_ROOT}/.cache" -o -path "${REPO_ROOT}/out" \
+    -o -path "${REPO_ROOT}/vendor-firmware" \) -prune -o \
   -type f -size +1M -print -quit)"
 [[ -z ${large_file} ]] || fail "仓库含大文件：${large_file}"
 artifact_file="$(find "${REPO_ROOT}" \
