@@ -97,9 +97,13 @@ if (-not $principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administra
 
 $RepositoryRoot = (Resolve-Path -LiteralPath $RepositoryRoot).Path
 $driverSource = Join-Path $RepositoryRoot 'winpe\drivers'
+$toolsSource = Join-Path $RepositoryRoot 'winpe\tools'
 $startnetSource = Join-Path $RepositoryRoot 'winpe\startnet.cmd'
 if (-not (Test-Path -LiteralPath $driverSource)) {
     throw "Driver tree not found: $driverSource"
+}
+if (-not (Test-Path -LiteralPath $toolsSource)) {
+    throw "Recovery tools not found: $toolsSource"
 }
 if (-not (Test-Path -LiteralPath $startnetSource)) {
     throw "startnet.cmd not found: $startnetSource"
@@ -201,6 +205,7 @@ try {
         'usbhub3.inf_arm64_*',
         'usbstor.inf_arm64_*',
         'hidi2c.inf_arm64_*',
+        'qcacsp_cls850.inf_arm64_*',
         'qci2c850.inf_arm64_*',
         'qcgpio850.inf_arm64_*',
         'qcuart850.inf_arm64_*',
@@ -213,8 +218,13 @@ try {
     }
 
     Copy-Item -LiteralPath $startnetSource -Destination (Join-Path $mountDirectory 'Windows\System32\startnet.cmd') -Force
+    $mountedTools = Join-Path $mountDirectory 'Program Files\RecoveryPE'
+    New-Item -ItemType Directory -Force -Path $mountedTools | Out-Null
+    Copy-Item -Path (Join-Path $toolsSource '*') -Destination $mountedTools -Recurse -Force
     $mediaDrivers = Join-Path $mediaDirectory 'Drivers'
     Copy-Item -LiteralPath $driverSource -Destination $mediaDrivers -Recurse -Force
+    $mediaTools = Join-Path $mediaDirectory 'Tools'
+    Copy-Item -LiteralPath $toolsSource -Destination $mediaTools -Recurse -Force
 
     Invoke-Native -FilePath dism.exe -Arguments @(
         '/Unmount-Image',

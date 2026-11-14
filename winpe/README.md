@@ -11,6 +11,9 @@ The generated ISO:
 - injects the local Qualcomm ARM64 I2C, GPIO, SPI, UART, USB, WLAN, power,
   SMMU, and monitor driver packages into `boot.wim`;
 - copies the complete driver tree to `X:\Drivers` for offline recovery;
+- starts the ARM64 Explorer++ graphical file manager as a lightweight shell;
+- writes storage and PnP diagnostics to
+  `C:\RecoveryPE\pe-diagnostics.txt`;
 - enables WMI, .NET, PowerShell, DISM, storage management, scripting, HTA,
   Chinese fonts, and x64 emulation where the ADK supports them;
 - displays physical disks and volumes automatically at startup.
