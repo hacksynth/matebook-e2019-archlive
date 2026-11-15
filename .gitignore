@@ -1,6 +1,4 @@
 /.cache/
 /.work/
 /out/
-/out-winpe/
-/out-winpe-win10/
 *.part

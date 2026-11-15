@@ -70,14 +70,8 @@ expected_files=(
   scripts/fetch-sources.sh scripts/build-kernel.sh scripts/prepare-rootfs.sh
   scripts/install-qualcomm-wifi-services.sh
   scripts/build-media.sh scripts/build.sh scripts/validate.sh
-  winpe/README.md winpe/Build-WinPE.ps1 winpe/startnet.cmd
-  winpe/tools/diagnose.ps1 winpe/tools/Open\ Command\ Prompt.cmd
-  winpe/tools/7-Zip/7zFM.exe
-  winpe/tools/Explorer++/Explorer++.exe
-  winpe/drivers/manifest.csv
   .github/workflows/build.yml .github/workflows/validate.yml
-  .github/workflows/publish-release.yml .github/workflows/build-winpe-arm64.yml
-  .github/workflows/build-winpe-arm64-win10.yml
+  .github/workflows/publish-release.yml
 )
 for relative in "${expected_files[@]}"; do
   [[ -f ${REPO_ROOT}/${relative} ]] || fail "缺少文件：${relative}"
@@ -216,19 +210,6 @@ for firmware_file in qcadsp850.mbn qccdsp850.mbn qcdsp1v2850.mbn qcdsp2850.mbn \
   [[ -s ${REPO_ROOT}/vendor-firmware/qcom/sdm850/HUAWEI/AL09/${firmware_file} ]] || \
     fail "缺少 PAK-AL09 专有固件：${firmware_file}"
 done
-grep -Fq 'Build-WinPE.ps1' "${REPO_ROOT}/.github/workflows/build-winpe-arm64.yml" || \
-  fail 'ARM64 WinPE workflow 未调用构建脚本'
-grep -Fq 'Build-WinPE.ps1' "${REPO_ROOT}/.github/workflows/build-winpe-arm64-win10.yml" || \
-  fail 'Win10 ARM64 WinPE workflow 未调用构建脚本'
-for winpe_driver in storufs.inf sdbus.inf sdstor.inf hidi2c.inf; do
-  if ! find "${REPO_ROOT}/winpe/drivers" -type f -iname "${winpe_driver}" -print -quit | grep -q .; then
-    fail "WinPE 驱动包缺少启动/存储驱动：${winpe_driver}"
-  fi
-done
-for winpe_tool in diagnose.ps1 '7-Zip/7zFM.exe' 'Explorer++/Explorer++.exe'; do
-  [[ -f "${REPO_ROOT}/winpe/tools/${winpe_tool}" ]] || \
-    fail "WinPE 工具缺失：${winpe_tool}"
-done
 grep -Fq 'qcom,calibration-variant = "Huawei_Planck";' \
   "${REPO_ROOT}/scripts/build-kernel.sh" || fail '构建前未校验 PAK-AL09 Wi-Fi 校准名'
 grep -Fq 'compatible = "innolux,p120zdg-bf1";' \
@@ -251,8 +232,7 @@ fi
 large_file="$(find "${REPO_ROOT}" \
   \( -path "${REPO_ROOT}/.git" -o -path "${REPO_ROOT}/.work" \
     -o -path "${REPO_ROOT}/.cache" -o -path "${REPO_ROOT}/out" \
-    -o -path "${REPO_ROOT}/vendor-firmware" -o -path "${REPO_ROOT}/winpe/drivers" \
-    -o -path "${REPO_ROOT}/winpe/tools" \) -prune -o \
+    -o -path "${REPO_ROOT}/vendor-firmware" \) -prune -o \
   -type f -size +1M -print -quit)"
 [[ -z ${large_file} ]] || fail "仓库含大文件：${large_file}"
 artifact_file="$(find "${REPO_ROOT}" \

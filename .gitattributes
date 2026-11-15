@@ -7,5 +7,3 @@
 *.md text eol=lf
 *.cmd text eol=crlf
 vendor-firmware/** -text -eol
-winpe/drivers/** -text -eol
-winpe/tools/** -text -eol
