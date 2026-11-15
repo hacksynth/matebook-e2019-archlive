@@ -118,6 +118,12 @@ for setting in CONFIG_CFG80211=m CONFIG_MAC80211=m CONFIG_ATH10K=m CONFIG_ATH10K
   grep -Fq "'${setting}'" "${REPO_ROOT}/scripts/build-kernel.sh" || \
     fail "build-kernel does not assert WCN3990 dependency: ${setting}"
 done
+for setting in CONFIG_USB_NET_RNDIS_HOST=m CONFIG_ATH10K_DEBUG=y CONFIG_ATH10K_DEBUGFS=y CONFIG_DYNAMIC_DEBUG=y; do
+  grep -Fxq "${setting}" "${CONFIG_DIR}/kernel.fragment" || \
+    fail "kernel fragment missing debug/RNDIS option: ${setting}"
+  grep -Fq "'${setting}'" "${REPO_ROOT}/scripts/build-kernel.sh" || \
+    fail "build-kernel does not assert debug/RNDIS option: ${setting}"
+done
 grep -Fxq 'ExecStart=/usr/bin/modprobe ath10k_snoc' \
   "${CONFIG_DIR}/ath10k-wcn3990.service" || \
   fail 'WCN3990 service does not load ath10k_snoc'
