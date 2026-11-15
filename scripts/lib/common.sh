@@ -31,6 +31,7 @@ case "${LIVE_FLAVOR}" in
   *) die "LIVE_FLAVOR 必须是 minimal 或 gui，当前为：${LIVE_FLAVOR}" ;;
 esac
 LIVE_IMAGE_BASENAME="${IMAGE_BASENAME}${LIVE_FLAVOR_SUFFIX}"
+export LIVE_FLAVOR LIVE_FLAVOR_SUFFIX LIVE_IMAGE_BASENAME
 
 require_root() {
   [[ ${EUID} -eq 0 ]] || die "此步骤需要 root（GitHub Actions 中使用 sudo）。"
