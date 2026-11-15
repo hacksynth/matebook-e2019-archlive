@@ -1,163 +1,62 @@
 # HUAWEI MateBook E 2019（PAK-AL09）Arch Linux ARM Live 构建器
 
-> **实验性、非官方、可能无法启动。** 目标仅为 Snapdragon 850 / AArch64 的
-> HUAWEI MateBook E 2019（PAK-AL09）。它不是华为、Arch Linux、Arch Linux
-> ARM 或 Linux 内核的官方产品。
+> **实验性、非官方项目，可能无法启动。** 目标设备为 Snapdragon 850 / AArch64 的 HUAWEI MateBook E 2019（PAK-AL09）。显示、触控、键盘、存储、无线网络及休眠功能都需要在真机上验证；请勿把本项目作为唯一生产系统或恢复手段。
 
-本仓库只保存文本构建配方，不保存内核二进制、固件、ISO 或磁盘镜像。GitHub
-Actions 在 Ubuntu x86_64 runner 上交叉编译 **Linux stable v7.3.4**，基于
-Generic AArch64 Arch Linux ARM rootfs 制作 dracut `dmsquash-live` 系统，并输出：
+本项目在 Ubuntu x86_64 环境中交叉编译 Linux stable 内核，并基于 Arch Linux ARM Generic AArch64 rootfs 构建可启动的 Live 介质。当前配置使用 Linux stable **v7.3.4** 和上游设备树 `qcom/sdm850-huawei-matebook-e-2019.dtb`。
 
-- `matebook-e2019-archlive-7.3.4.img.zst`：**推荐**的 GPT raw 镜像，
-  含 128 MiB ESP 和 ext4 Live 分区；
+## 构建产物
+
+- `matebook-e2019-archlive-7.3.4.img.zst`：推荐的 GPT raw USB 镜像，含 128 MiB ESP 和 ext4 Live 分区；
 - `matebook-e2019-archlive-7.3.4.iso`：AA64 UEFI El Torito ISO；
-- `SHA256SUMS`、`BUILD-INFO.txt`、`SOURCE-LOCK.env`、`DEVICE-PROFILE.env`、
-  `packages.txt`、`kernel.config`、`linux-source-7.3.4.tar.zst`（完整对应源码）
-  和 ISO El Torito 检查报告。
+- `linux-source-7.3.4.tar.zst`：构建所用完整内核源码归档；
+- `SHA256SUMS`、`BUILD-INFO.txt`、`SOURCE-LOCK.env`、`DEVICE-PROFILE.env`、`packages.txt`、`kernel.config` 和 ISO El Torito 检查报告。
 
-ISO 和 raw 镜像都使用未签名的 GRUB AA64 (`EFI/BOOT/BOOTAA64.EFI`)，显式加载
-`qcom/sdm850-huawei-matebook-e-2019.dtb`，再启动同一份 `Image`、dracut initramfs
-与 squashfs。raw 镜像更符合此设备的 UEFI/USB 启动路径；部分固件不会把 USB ISO
-当作光驱枚举。
+镜像使用未签名的 ARM64 GRUB，不支持 Secure Boot。GRUB 显式加载设备树、内核 `Image`、dracut initramfs 与 SquashFS Live 根文件系统。部分设备固件无法将 USB ISO 当作光驱枚举，通常优先尝试 raw 镜像。
 
-## 必须先读的安全警告
+## 项目结构
 
-1. **完整备份内部 UFS 与恢复资料。** 写错 `/dev/sdX` 会立即破坏其他磁盘；
-   本项目无法恢复数据。Live 系统默认不会自动安装或写入内部 UFS，但 root/sudo
-   用户仍然可以手工破坏它。
-2. **关闭 Secure Boot。** 产物没有 Microsoft/设备所有者签名，本项目不生成、
-   托管或请求任何签名密钥。不要用来源不明的预签名 EFI 文件替换它。
-3. **显示、触控、键盘、存储、Wi-Fi 与休眠仍需真机验证。** 测试时保持可恢复电源，
-   不要把该介质用于唯一的生产设备。
+```text
+configs/                 内核、设备、GRUB、dracut 与 ALARM 包配置
+scripts/                 来源验证、内核、rootfs、介质构建与静态检查
+  lib/common.sh          路径保护、日志、依赖检查和 AA64 EFI 校验
+vendor-firmware/         PAK-AL09 专有 Qualcomm 固件及相关设备数据
+.github/workflows/       Linux 构建、验证与发布工作流
+```
 
-## 版本与板级支持现状
+## 设备基线与功能范围
 
-| 项目 | v0.2.0（本仓库当前默认） | v0.1.0（历史 Release） |
-|---|---|---|
-| 内核 | Linux stable **v7.3.4** | sdm845-mainline 6.16-dev @ `ed6098a` |
-| 设备树 | **上游已合入** `sdm850-huawei-matebook-e-2019.dts` | New-Wheat 外部补丁 |
-| 显示链路 | 上游 `sn65dsi86` + `panel-edp` + Panfrost | 同左（补丁树） |
-| 触控/键盘 | 上游 i2c-HID、USB HID | 同左 |
-| UFS / SD / USB-C | 上游 QCOM UFS、SDHCI、DWC3/QMP/QUSB2 | 同左（含 UCSI 补丁） |
-| Wi-Fi / 蓝牙 | 上游 `ath10k`（WCN3990），校准名 `Huawei_Planck` | 校准名 `Lenovo_C630` |
-| EC（电池/背光/合盖/Fn/UCSI） | **暂未包含**（需把 6.16 的 huawei-planck-ec 补丁移植到 7.3） | 已包含 New-Wheat EC/UCSI/QSEECom 补丁 |
+`configs/device.env` 记录目标设备硬件基线：PAK-AL09 / 产品版本 M1010、Snapdragon 850、8 GiB 内存、2160 × 1440 显示屏、Goodix GT7380 I2C-HID 触摸屏及 Qualcomm WCN3990。内核配置在 `configs/kernel.fragment`，包括 Live 所需的 SquashFS/OverlayFS、压缩 initramfs、USB/UFS/SD、USB-C QCOM PHY、eDP 显示、触控及 WCN3990 `ath10k_snoc` 支持。
 
-v0.2.0 的目标是“**干净地跟踪最新稳定内核**”：只使用上游树与上游设备树，不再
-依赖 6.16 专用的板级补丁。代价是 EC 相关功能（电池百分比、EC 背光、合盖事件、
-Fn 键、部分 USB-C 角色切换）在 v0.2.0 中可能不可用；这些功能仍保留在 v0.1.0。
-如果你需要 EC 功能优先，请使用 v0.1.0 或等待后续把 EC 驱动移植到 7.3。
+`configs/grub.cfg` 提供三个启动项：默认启动、禁用 QSEECom 排错，以及添加 `efi=novamap` 的 UEFI 排错。当前上游内核配置不含 6.16 的 Planck EC/UCSI/QSEECom 板级补丁，因此电池状态、EC 背光、合盖、Fn 键和部分 USB-C 角色切换功能可能不可用。Wi-Fi 使用上游 `ath10k` 的 `Huawei_Planck` 校准名；缺少设备专有校准/BDF 数据时可能无法工作。
 
-## 当前实机硬件基线
+## 来源锁定与验证
 
-2026-11-13 在目标设备上核对到以下配置；不含序列号、UUID 等唯一标识：
+网络输入锁定在 `configs/versions.env`，设备基线在 `configs/device.env`，取源逻辑在 `scripts/fetch-sources.sh`。构建脚本获取固定内核 tag 并校验完整提交 SHA；对 Arch Linux ARM Generic AArch64 rootfs 校验锁定 MD5、分离 OpenPGP 签名及 ALARM 构建密钥完整指纹。上游 `latest` rootfs 内容变化时构建会失败关闭；维护者应审查来源后更新锁文件，不要绕过校验。
 
-| 项目 | 当前设备 |
-|---|---|
-| 型号 | HUAWEI MateBook E 2019 PAK-AL09，产品版本 M1010 |
-| SoC / 内存 | Snapdragon 850，8 GiB |
-| 显示 | 2160 × 1440，Adreno 630，上游 `innolux,p120zdg-bf1` + `sn65dsi86` 链路 |
-| 内部存储 | 256 GB UFS；另有一个 SD 读卡器 |
-| 触摸 | Goodix GT7380，I2C-HID（ACPI/HID ID `GXTP7380`） |
-| Wi‑Fi / 蓝牙 | Qualcomm WCN3990，`ath10k` + QCA UART |
-| BIOS 验证基线 | 1.15（2019-04-26），UEFI |
-
-设备型号、设备树和固件根目录集中在
-[`configs/device.env`](configs/device.env)。内核缓存键包含该文件；最终介质还会附带
-`DEVICE-PROFILE.env`，便于确认产物对应的目标设备。
-
-## 锁定上游、URL 与验证模型
-
-网络输入锁定在 [`configs/versions.env`](configs/versions.env)，目标设备基线在
-[`configs/device.env`](configs/device.env)，下载逻辑在
-[`scripts/fetch-sources.sh`](scripts/fetch-sources.sh)。任何更新都应作为人工审查的
-供应链或设备配置变更提交。
-
-| 输入 | 固定版本 / URL | 构建时验证 |
-|---|---|---|
-| Linux 内核 | `https://github.com/gregkh/linux.git`（stable 镜像，tag 对象与 kernel.org 一致；kernel.org 为回退），tag `v7.3.4`，提交 `7595a62d45ee1a2297eafa5f2ef5d0a45142d84d` | tag + 提交 SHA + `make olddefconfig` 产物校验 |
-| Generic AArch64 ALARM rootfs | `http://fl.us.mirror.archlinuxarm.org/os/ArchLinuxARM-aarch64-latest.tar.gz`，上游时间 `2026-08-05T12:41:36Z` | MD5 `23eec86365b24f7913c403e8f4e8719b` 锁定 |
-| ALARM 公钥 | `hkps://keyserver.ubuntu.com`，失败时回退 HTTPS keyserver | 取得后比较 40 位完整指纹 |
-| 构建产物 | 本次 `out/` | 对所有发布文件生成 `SHA256SUMS`；workflow 上传与 Release 前再次 `sha256sum --check` |
-
-ALARM 的下载镜像只提供 HTTP，完整 OpenPGP 验证才是 rootfs 的真实性/完整性检查。
-若 `latest` 更新，旧 MD5 会使构建**失败关闭**，维护者必须先审查新版签名与内容再
-更新锁文件。Arch Linux ARM 是滚动发行版，`pacman -Syu` 安装当时的已签名包，
-因此完整镜像目前**不保证逐字节可重复**；每次构建会把实际包版本写入
-`packages.txt`。
+Arch Linux ARM 使用滚动软件包。最终包版本随构建时仓库状态变化并记录在 `packages.txt`，所以即使内核和 rootfs 输入已锁定，完整镜像仍不保证逐字节可重复。
 
 ## 构建流程
 
-1. fetch 并校验 stable `v7.3.4` 与 ALARM rootfs；
-2. 合并 arm64 `defconfig` 与 [`configs/kernel.fragment`](configs/kernel.fragment)
-   （Live/OverlayFS/SquashFS、initramfs zstd 解压、模块压缩、USB-C 根设备所需
-   DWC3/QCOM glue、QMP/QUSB2 PHY、USB Storage/UAS、显示/触控驱动）；
-3. 交叉编译 `Image`、modules 与设备配置指定的 PAK-AL09 DTB，剥离调试符号并
-   zstd 压缩模块；
-4. 生成包含上游 PAK-AL09 设备树的完整 GPL 对应源码归档；
-5. 在 qemu-aarch64 chroot 中展开 rootfs、安装 ALARM 包，用 ALARM 原生 AArch64
-   GRUB 生成 `BOOTAA64.EFI`（内嵌提供 `devicetree` 命令的 `fdt.mod`），由 dracut
-   的 `dmsquash-live` 生成 live initramfs（dracut-ng ≥ 103 的目录是
-   `70dmsquash-live`，脚本同时兼容旧的 `90dmsquash-live`）；
-6. 制作 ISO �� GPT raw 镜像（ESP + ext4 Live 分区），生成校验和。
+1. 获取并校验内核源码与 ALARM rootfs；
+2. 合并 `configs/kernel.fragment`，构建 arm64 `Image`、模块和 PAK-AL09 DTB，并检查关键内核配置；
+3. 在 qemu-aarch64 chroot 中更新 ALARM 包、配置 Live 用户与服务、生成 AA64 GRUB 和 dracut `dmsquash-live` initramfs；
+4. 生成 SquashFS、ISO、GPT raw 镜像及 SHA-256 校验和。
 
-chroot 内会关闭 pacman 7 的下载 Landlock 沙箱（qemu-user 不支持）并规避
-`CheckSpace` 误报，但**包签名校验保持启用**；同时移除全量固件元包与
-AMD/NVIDIA/Intel 等无关平台的固件拆分包，只保留 Qualcomm/Atheros。
-此外，`scripts/install-qualcomm-wifi-services.sh` 仅清理编译期工具链，不卸载
-`pkgconf`；`dracut` 生成 `dmsquash-live` initramfs 时依赖它，移除后会触发
-`removing pkgconf breaks dependency 'pkgconf' required by dracut`。因此编译工具链
-可被清理，但运行时依赖必须保留。
+chroot 内为适配 qemu-user 会关闭 pacman 7 下载沙箱并规避 `CheckSpace` 误报，但包签名校验保持启用。Qualcomm Wi-Fi 用户空间服务由 `scripts/install-qualcomm-wifi-services.sh` 从固定提交构建。该脚本会清理编译工具链，但**保留 `pkgconf`**：`dracut` 生成 initramfs 时依赖它，卸载会导致 pacman 事务失败。
 
-## 固件：缺失影响与法律边界
+## 专有固件注意事项
 
-本私有仓库的 [`vendor-firmware/`](vendor-firmware/) 保存从当前设备 Windows
-驱动库提取的 PAK-AL09 专用固件，仅用于本仓库的受控构建。**不得把仓库改回公开、
-不得公开分发这些文件，也不要将含固件的镜像或 Release 分享给无权限的第三方。**
-可再分发的 `linux-firmware-qcom` 与 `linux-firmware-atheros` 不能替代这些设备专用
-blob。上游设备树引用的典型路径包括：
-
-```text
-/usr/lib/firmware/qcom/sdm850/HUAWEI/AL09/qcadsp850.mbn
-/usr/lib/firmware/qcom/sdm850/HUAWEI/AL09/qccdsp850.mbn
-/usr/lib/firmware/qcom/sdm850/HUAWEI/AL09/qcdsp1v2850.mbn
-/usr/lib/firmware/qcom/sdm850/HUAWEI/AL09/qcdsp2850.mbn
-/usr/lib/firmware/qcom/sdm850/HUAWEI/AL09/qcslpi850.mbn
-/usr/lib/firmware/qcom/sdm850/HUAWEI/AL09/qcdxkmsuc850.mbn
-/usr/lib/firmware/qcom/sdm850/HUAWEI/AL09/ipa_fws.elf
-/usr/lib/firmware/qcom/sdm850/HUAWEI/AL09/qcvss850.mbn
-```
-
-缺少这些文件时，GPU 加速、音频 DSP、传感器 DSP、调制解调器、IPA 网络加速、视频
-编解码等功能可能不可用；Wi-Fi/蓝牙还可能需要设备校准数据。构建介质阶段检测到
-仓库内 `vendor-firmware/` 时会自动注入；也可用环境变量覆盖目录：
+`vendor-firmware/` 包含从目标设备提取的 PAK-AL09 专有 Qualcomm 固件。构建脚本检测到该目录时会自动注入，也可以通过环境变量指定本地固件树：
 
 ```bash
 sudo VENDOR_FIRMWARE_DIR=/absolute/path/to/firmware-tree bash scripts/build.sh
 ```
 
-目录内容按 `/usr/lib/firmware/` 的相对路径复制；构建中会生成
-`/usr/share/matebook-live/vendor-firmware.sha256`。**即使个人使用合法，把含专有
-固件的 ISO/镜像上传到 Release 也可能违法。**
-
-## GitHub Actions
-
-- [`validate.yml`](.github/workflows/validate.yml)：`bash -n`、ShellCheck、Ruby YAML
-  解析、固定版本的 actionlint，以及仓库自带的锁定/产物检查；默认权限仅
-  `contents: read`。
-- [`build.yml`](.github/workflows/build.yml)：普通 build job 仅有 `contents: read`；
-  tag 为 `v*` 时，独立 release job 才获得 `download-artifact` 所需的 `actions: read`
-  与发布所需的 `contents: write`。所有 GitHub 官方 action 都固定为完整 commit SHA。
-  构建分为内核阶段和介质阶段：内核阶段完成后立即 `actions/cache/save` 保存按输入
-  哈希命名的内核缓存，介质阶段失败时下一轮可直接复用内核。
-- [`publish-release.yml`](.github/workflows/publish-release.yml)：手动从某次成功构建的
-  artifact 下载、校验 `SHA256SUMS` 并发布/更新 Release，用于本地上传大文件不稳定时。
-
-推 `v*` tag 会重新构建并自动发布 Release。
+固件按 `/usr/lib/firmware/` 的相对路径复制，镜像内会生成 SHA-256 清单。缺少设备专有固件或校准数据时，部分 SoC 功能及无线网络可能不可用。固件受硬件厂商许可约束；请确保有权使用，并且不要公开仓库或向无权限的第三方分发固件、含固件镜像或相关构建产物。
 
 ## 本地构建
 
-建议使用干净的 Ubuntu 24.04 x86_64、8 GiB 内存。默认保留调试中间文件时准备约
-35 GiB；空间受限时使用 `CLEAN_INTERMEDIATES=1` 分阶段释放中间文件：
+建议在 Ubuntu 24.04 x86_64、至少 8 GiB 内存的干净环境构建；默认保留中间文件时准备约 35 GiB 空间。安装宿主依赖并运行：
 
 ```bash
 sudo apt-get update
@@ -170,21 +69,33 @@ sudo CLEAN_INTERMEDIATES=1 bash scripts/build.sh
 (cd out && sha256sum --check SHA256SUMS)
 ```
 
-也可以像 CI 一样分阶段构建，便于复用内��产物或只重跑介质阶段：
+也可以分开运行内核与介质阶段；两个阶段须使用同一工作目录中的构建数据：
 
 ```bash
-sudo STAGE=kernel CLEAN_INTERMEDIATES=1 bash scripts/build.sh  # 取源 + 编译内核 + GPL 源码
-sudo STAGE=media  CLEAN_INTERMEDIATES=1 bash scripts/build.sh  # rootfs + ISO + raw
+sudo STAGE=kernel CLEAN_INTERMEDIATES=1 bash scripts/build.sh
+sudo STAGE=media  CLEAN_INTERMEDIATES=1 bash scripts/build.sh
 ```
 
-脚本使用 `set -Eeuo pipefail`；`.work/` 和 `out/` 会幂等重建，`.cache/` 保留已验证的
-下载与内核缓存。清理函数只接受仓库内这三个工作路径。不要在不受信任的 fork 上直接
-使用 sudo 运行构建脚本。
+构建脚本需要 root 执行。不要在不受信任的 fork 上用 sudo 执行。
+
+## GitHub Actions 与静态检查
+
+- `validate.yml` 运行 `scripts/validate.sh`，检查 Shell 语法、ShellCheck、workflow YAML/actionlint、来源锁、配置、设备树以及预期文件；也可检查已构建 EFI 的 AA64 PE/COFF 架构。
+- `build.yml` 在 Ubuntu runner 上将内核与介质阶段分开，按构建输入哈希缓存内核，校验产物并上传 Actions artifact。推送 `v*` tag 时，成功构建后会发布或更新 Release。
+- `publish-release.yml` 可手动选择成功构建 run 的 artifact，复核校验和后发布或更新 Release。
+
+安装 ShellCheck、Ruby、actionlint 等验证工具后运行：
+
+```bash
+STRICT_TOOLS=1 bash scripts/validate.sh
+AA64_EFI_PATH=.work/boot/BOOTAA64.EFI STRICT_TOOLS=1 bash scripts/validate.sh
+```
+
+第二条命令需要已生成的 EFI 文件。静态检查不等同于完整镜像构建或目标设备启动测试。
 
 ## 写入与启动
 
-先验证下载，然后再次确认目标盘。下面的 `/dev/sdX` **必须替换为整个可移动设备，
-不能是分区，也绝不能是内部 UFS/NVMe**：
+先验证校验和，再确认写入目标是**整个可移动设备**。将 `/dev/sdX` 替换为正确设备；写错目标会破坏数据，绝不能指向内部 UFS/NVMe：
 
 ```bash
 sha256sum --check SHA256SUMS
@@ -193,46 +104,12 @@ zstd -dc matebook-e2019-archlive-7.3.4.img.zst \
 sync
 ```
 
-也可以把 ISO 写到整盘，但优先使用 `.img.zst`。在设备固件设置中关闭 Secure Boot，
-选择 USB 的 AA64 UEFI 启动项。Live 账号为 `live`，密码为 `live`，wheel/sudo 无密码；
-root 密码锁定。该弱密码只适合临时、受控的 Live 环境；`sshd` 已安装但默认禁用。
+写入前备份内部存储与恢复资料，并在设备固件设置中关闭 Secure Boot，选择 USB 的 AA64 UEFI 启动项。Live 用户为 `live`，密码为 `live`，wheel/sudo 无密码；root 密码锁定，`sshd` 默认禁用。该弱密码只适合临时、受控的 Live 环境。系统默认不安装到内部 UFS，但 root 用户仍可手动破坏磁盘。
 
-### 首次启动排错
+## 已知风险与许可
 
-GRUB 菜单提供三个条目，按以下顺序尝试：
+- 本项目处于实验阶段，显示、触控、键盘、存储、Wi-Fi、蓝牙和休眠均需在 PAK-AL09 真机验证；
+- 上游 ALARM 滚动软件包、dracut、GRUB AA64 与 qemu-user-static 可能发生接口变化；
+- 构建并不自动代表介质已经过真机启动测试。
 
-1. 默认条目（`qcom_scm.qseecom=auto`，OverlayFS 临时 overlay）；
-2. **禁用 QSEECom**（`qcom_scm.qseecom=off`）：UEFI 变量/安全世界相关崩溃时使用；
-3. **`efi=novamap`**：设备 UEFI 在 `SetVirtualAddressMap` 后异常（重启、黑屏、卡死）时使用。
-
-如果没有任何输出，先用外接 USB 键盘确认是否已进入 GRUB；再检查固件是否把该 U 盘
-识别为 UEFI 可移动设备。系统内可用
-`dmesg | grep -Ei 'panic|oops|firmware|dwc3|panel|touch'` 收集信息。
-
-## 静态检查
-
-安装 `shellcheck`、Ruby 和 actionlint 后运行：
-
-```bash
-STRICT_TOOLS=1 bash scripts/validate.sh
-AA64_EFI_PATH=.work/boot/BOOTAA64.EFI STRICT_TOOLS=1 bash scripts/validate.sh
-```
-
-没有这些工具时，脚本仍会运行 `bash -n` 与内建检查，但会明确警告跳过项。
-
-## 已知未验证风险
-
-- 本仓库的静态检查不等于完整内核/镜像构建，更不等于 PAK-AL09 真机启动测试；
-- v0.2.0 使用上游 7.3.4 设备树，但**未在真机验证**；显示/触控/Wi-Fi/休眠需逐项测试；
-- 7.3.4 不含 huawei-planck-ec / Planck UCSI / QSEECom 板级补丁，EC 相关功能缺失；
-- 上游 `ath10k` 使用 `Huawei_Planck` 校准名，缺少设备专有 BDF 时 Wi-Fi 不可用；
-- 相机（gc5025 / s5k3l6xx）在该机型上有已知硬件侧限制；外接 USB-C 显示表现一般；
-- ALARM 滚动包、dracut、GRUB AA64 与 qemu-user-static 未来可能产生接口变化。
-
-## 许可证
-
-本仓库自有脚本和文档采用 [`LICENSE`](LICENSE) 中的 MIT License。构建时下载的 Linux
-内核、Arch Linux ARM 包和固件分别受其各自许可证约束；自动构建会把
-`linux-source-7.3.4.tar.zst` 与内核/模块一同发布并纳入 `SHA256SUMS`，用于提供本次
-内核的完整对应源码；发布者仍须履行其余 GPL 条款、软件包许可证与固件条款。
-
+本仓库自有脚本和文档采用 MIT License。Linux 内核、Arch Linux ARM 包及设备固件分别受其各自许可约束；使用者和构建者应自行确认使用及分发权限。
