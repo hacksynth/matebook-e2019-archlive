@@ -67,4 +67,5 @@ done
 
 systemctl enable tqftpserv.service pd-mapper.service ath10k-wcn3990.service
 
-pacman --noconfirm -Rns gcc make meson ninja pkgconf
+# dracut 依赖 pkgconf，不能在 chroot 中删掉它；这里仅清理编译期工具链。
+pacman --noconfirm -Rns gcc make meson ninja
