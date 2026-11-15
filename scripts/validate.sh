@@ -71,7 +71,6 @@ expected_files=(
   scripts/install-qualcomm-wifi-services.sh
   scripts/build-media.sh scripts/build.sh scripts/validate.sh
   .github/workflows/build.yml .github/workflows/validate.yml
-  .github/workflows/publish-release.yml
 )
 for relative in "${expected_files[@]}"; do
   [[ -f ${REPO_ROOT}/${relative} ]] || fail "缺少文件：${relative}"
@@ -79,8 +78,16 @@ done
 
 grep -Fq 'permissions:' "${REPO_ROOT}/.github/workflows/build.yml" || fail 'build workflow 未声明权限'
 grep -Fq 'contents: read' "${REPO_ROOT}/.github/workflows/build.yml" || fail 'build workflow 缺少只读默认权限'
-grep -Fq 'contents: write' "${REPO_ROOT}/.github/workflows/build.yml" || fail 'release job 缺少显式写权限'
-grep -Fq 'actions: read' "${REPO_ROOT}/.github/workflows/build.yml" || fail 'release job 缺少 artifact 只读权限'
+grep -Fq 'contents: write' "${REPO_ROOT}/.github/workflows/build.yml" || fail 'build job 缺少发布 Release 的写权限'
+if grep -Fq 'upload-artifact' "${REPO_ROOT}/.github/workflows/build.yml"; then
+  fail '构建不应再用 upload-artifact 打包 zip；应逐产物上传 Release asset'
+fi
+grep -Fq 'gh release upload' "${REPO_ROOT}/.github/workflows/build.yml" || \
+  fail '未逐文件上传 Release asset'
+grep -Fq -- '--clobber' "${REPO_ROOT}/.github/workflows/build.yml" || \
+  fail 'Release asset 上传未启用覆盖'
+grep -Fq 'tag="latest"' "${REPO_ROOT}/.github/workflows/build.yml" || \
+  fail 'main 构建未更新 latest 预发布'
 grep -Fq 'devicetree /boot/dtb/qcom/sdm850-huawei-matebook-e-2019.dtb' \
   "${CONFIG_DIR}/grub.cfg" || fail 'GRUB 未加载 PAK-AL09 设备树'
 grep -Fq 'rd.live.image' "${CONFIG_DIR}/grub.cfg" || fail 'GRUB 缺少 dracut live 参数'

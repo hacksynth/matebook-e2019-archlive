@@ -18,6 +18,9 @@ jobs:
   build:
     runs-on: ubuntu-24.04
     timeout-minutes: 360
+    # 只有本 job 需要写 Release（tag 发布 / main 的 latest 预发布）。
+    permissions:
+      contents: write
     steps:
       - name: Checkout
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
@@ -77,37 +80,35 @@ jobs:
       - name: Verify release checksums
         run: (cd out && sha256sum --check SHA256SUMS)
 
-      - name: Upload build artifact
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
-        with:
-          name: matebook-e2019-archlive
-          path: out/
-          if-no-files-found: error
-          compression-level: 0
-          retention-days: 14
-
-  release:
-    if: startsWith(github.ref, 'refs/tags/v')
-    needs: build
-    runs-on: ubuntu-24.04
-    permissions:
-      actions: read
-      contents: write
-    steps:
-      - name: Download verified artifacts
-        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
-        with:
-          name: matebook-e2019-archlive
-          path: release
-
-      - name: Publish or update GitHub Release
+      # 不再使用 actions/upload-artifact（它总会生成 zip）。直接把 out/ 下每个
+      # 产物作为独立 Release asset 上传；tag 构建发布正式版，main 构建更新 latest
+      # 预发布。PR 构建只做校验，不上传。
+      - name: Upload individual release assets
+        if: github.event_name != 'pull_request'
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          (cd release && sha256sum --check SHA256SUMS)
-          if gh release view "${GITHUB_REF_NAME}" >/dev/null 2>&1; then
-            gh release upload "${GITHUB_REF_NAME}" release/* --clobber
+          set -Eeuo pipefail
+          cd out
+          if [[ "${GITHUB_REF_TYPE}" == "tag" ]]; then
+            tag="${GITHUB_REF_NAME}"
+            title="PAK-AL09 Arch Linux ARM Live ${tag}"
+            notes="Tag build ${GITHUB_SHA}."
+            prerelease=()
           else
-            gh release create "${GITHUB_REF_NAME}" release/* \
-              --verify-tag --generate-notes --title "${GITHUB_REF_NAME}"
+            tag="latest"
+            title="PAK-AL09 Arch Linux ARM Live (latest main build)"
+            notes="Rolling build from main at ${GITHUB_SHA}."
+            prerelease=(--prerelease)
           fi
+
+          if ! gh release view "${tag}" >/dev/null 2>&1; then
+            if [[ "${GITHUB_REF_TYPE}" == "tag" ]]; then
+              gh release create "${tag}" --verify-tag --title "${title}" --notes "${notes}"
+            else
+              gh release create "${tag}" --target "${GITHUB_SHA}" \
+                --title "${title}" --notes "${notes}" "${prerelease[@]}"
+            fi
+          fi
+          # 逐个文件上传（含 SHA256SUMS），已存在则覆盖。
+          gh release upload "${tag}" ./* --clobber

@@ -81,8 +81,10 @@ sudo STAGE=media  CLEAN_INTERMEDIATES=1 bash scripts/build.sh
 ## GitHub Actions 与静态检查
 
 - `validate.yml` 运行 `scripts/validate.sh`，检查 Shell 语法、ShellCheck、workflow YAML/actionlint、来源锁、配置、设备树以及预期文件；也可检查已构建 EFI 的 AA64 PE/COFF 架构。
-- `build.yml` 在 Ubuntu runner 上将内核与介质阶段分开，按构建输入哈希缓存内核，校验产物并上传 Actions artifact。推送 `v*` tag 时，成功构建后会发布或更新 Release。
-- `publish-release.yml` 可手动选择成功构建 run 的 artifact，复核校验和后发布或更新 Release。
+- `build.yml` 在 Ubuntu runner 上将内核与介质阶段分开，按构建输入哈希缓存内核并校验产物。
+  **不再使用 `actions/upload-artifact`（它总会打包成 zip）**，而是把 `out/` 下每个产物
+  逐个作为独立 Release asset 直接上传：`v*` tag 构建发布对应正式 Release，`main` 构建
+  更新滚动预发布 `latest`，PR 构建只校验不上传。
 
 安装 ShellCheck、Ruby、actionlint 等验证工具后运行：
 
