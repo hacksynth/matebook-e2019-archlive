@@ -1,0 +1,16 @@
+#!/usr/bin/bash
+set -euo pipefail
+
+for rproc in /sys/class/remoteproc/remoteproc*; do
+  [[ -r "${rproc}/name" && -r "${rproc}/state" ]] || continue
+  [[ $(<"${rproc}/name") == 4080000.remoteproc ]] || continue
+
+  state=$(<"${rproc}/state")
+  [[ ${state} == running || ${state} == attached ]] && exit 0
+
+  echo start >"${rproc}/state"
+  exit 0
+done
+
+echo 'mss remoteproc not found' >&2
+exit 1

@@ -1,0 +1,14 @@
+[Unit]
+Description=Start Qualcomm MSS for WCN3990 WLAN
+Wants=rmtfs.service pd-mapper.service tqftpserv.service ath10k-wcn3990.service
+After=rmtfs.service pd-mapper.service tqftpserv.service ath10k-wcn3990.service
+ConditionPathExists=/sys/class/remoteproc
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/start-qcom-mss
+TimeoutStartSec=90s
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target

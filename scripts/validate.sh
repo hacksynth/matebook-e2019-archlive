@@ -67,6 +67,8 @@ expected_files=(
   configs/packages-gui.aarch64
   configs/grub.cfg configs/grub-embedded.cfg configs/packages.aarch64
   configs/ath10k-wcn3990.service
+  configs/qcom-mss.service configs/qcom-wifi.modules-load.conf
+  configs/start-qcom-mss configs/dracut-qcom-firmware.conf
   configs/pd-mapper-retry.conf
   scripts/fetch-sources.sh scripts/build-kernel.sh scripts/prepare-rootfs.sh
   scripts/install-qualcomm-wifi-services.sh
@@ -102,6 +104,7 @@ grep -Fq 'LIVE_IMAGE_BASENAME' "${REPO_ROOT}/scripts/build-media.sh" || \
 grep -Fq 'devicetree /boot/dtb/qcom/sdm850-huawei-matebook-e-2019.dtb' \
   "${CONFIG_DIR}/grub.cfg" || fail 'GRUB 未加载 PAK-AL09 设备树'
 grep -Fq 'rd.live.image' "${CONFIG_DIR}/grub.cfg" || fail 'GRUB 缺少 dracut live 参数'
+grep -Fq 'rd.live.ram=1' "${CONFIG_DIR}/grub.cfg" || fail 'GRUB 未将 Live SquashFS 载入内存'
 grep -Fq 'rd.overlay' "${CONFIG_DIR}/grub.cfg" || fail 'GRUB 缺少 dracut 111 的 rd.overlay 参数'
 if grep -Fq 'rd.live.overlay.overlayfs' "${CONFIG_DIR}/grub.cfg"; then
   fail 'GRUB 仍使用 dracut 111 已重命名的 overlay 参数'
@@ -144,12 +147,29 @@ grep -Fq 'After=pd-mapper.service tqftpserv.service' \
 grep -Fq 'systemctl is-active --quiet pd-mapper.service' \
   "${CONFIG_DIR}/ath10k-wcn3990.service" || \
   fail 'WCN3990 service does not wait for active pd-mapper'
+grep -Fxq 'qrtr_smd' "${CONFIG_DIR}/qcom-wifi.modules-load.conf" || \
+  fail 'Qualcomm modules-load config does not load qrtr_smd'
+grep -Fq 'ExecStart=/usr/local/sbin/start-qcom-mss' \
+  "${CONFIG_DIR}/qcom-mss.service" || \
+  fail 'qcom-mss service does not start the modem remoteproc'
+grep -Fq 'echo start >"${rproc}/state"' "${CONFIG_DIR}/start-qcom-mss" || \
+  fail 'qcom-mss helper does not start the remoteproc'
 grep -Fq 'install-qualcomm-wifi-services.sh' \
   "${REPO_ROOT}/scripts/prepare-rootfs.sh" || \
   fail 'prepare-rootfs does not build the Qualcomm Wi-Fi services'
+grep -Fq 'qcom-mss.service' "${REPO_ROOT}/scripts/prepare-rootfs.sh" || \
+  fail 'prepare-rootfs does not install the qcom-mss service'
+grep -Fq 'qcom-wifi.modules-load.conf' \
+  "${REPO_ROOT}/scripts/prepare-rootfs.sh" || \
+  fail 'prepare-rootfs does not install qrtr_smd module loading'
 grep -Fq '/usr/bin/tqftpserv' \
   "${REPO_ROOT}/scripts/install-qualcomm-wifi-services.sh" || \
   fail 'Qualcomm Wi-Fi service build does not verify tqftpserv'
+grep -Fq 'rmtfs-git' "${REPO_ROOT}/scripts/install-qualcomm-wifi-services.sh" || \
+  fail 'Qualcomm Wi-Fi installer does not install rmtfs'
+grep -Fq 'wlanmdsp.mbn' \
+  "${REPO_ROOT}/scripts/install-qualcomm-wifi-services.sh" || \
+  fail 'Qualcomm Wi-Fi installer does not map WCN3990 firmware'
 for jsn in adspr.jsn adspua.jsn cdspr.jsn modemuw.jsn slpir.jsn slpius.jsn; do
   [[ -s "${REPO_ROOT}/vendor-firmware/qcom/sdm850/HUAWEI/AL09/${jsn}" ]] || \
     fail "missing Qualcomm PD map: ${jsn}"
@@ -255,13 +275,15 @@ fi
 
 large_file="$(find "${REPO_ROOT}" \
   \( -path "${REPO_ROOT}/.git" -o -path "${REPO_ROOT}/.work" \
-    -o -path "${REPO_ROOT}/.cache" -o -path "${REPO_ROOT}/out" \
+    -o -path "${REPO_ROOT}/.cache" -o -path "${REPO_ROOT}/.transfer" \
+    -o -path "${REPO_ROOT}/out" \
     -o -path "${REPO_ROOT}/vendor-firmware" \) -prune -o \
   -type f -size +1M -print -quit)"
 [[ -z ${large_file} ]] || fail "仓库含大文件：${large_file}"
 artifact_file="$(find "${REPO_ROOT}" \
   \( -path "${REPO_ROOT}/.git" -o -path "${REPO_ROOT}/.work" \
-    -o -path "${REPO_ROOT}/.cache" -o -path "${REPO_ROOT}/out" \) -prune -o \
+    -o -path "${REPO_ROOT}/.cache" -o -path "${REPO_ROOT}/.transfer" \
+    -o -path "${REPO_ROOT}/out" \) -prune -o \
   -type f \( -name '*.iso' -o -name '*.img' -o -name '*.img.zst' -o -name '*.dtb' -o -name '*.efi' \) \
   -print -quit)"
 [[ -z ${artifact_file} ]] || fail "仓库误提交构建产物：${artifact_file}"

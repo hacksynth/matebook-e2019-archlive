@@ -42,6 +42,10 @@ arch-meson "${work_dir}/qrtr" "${work_dir}/qrtr/build" \
 meson compile -C "${work_dir}/qrtr/build"
 meson install -C "${work_dir}/qrtr/build"
 
+# rmtfs-git depends on the manually built qrtr library above. Avoid installing
+# qrtr-git, whose files would conflict with the pinned source build.
+pacman --noconfirm -S --needed --assume-installed qrtr rmtfs-git
+
 arch-meson "${work_dir}/tqftpserv" "${work_dir}/tqftpserv/build" \
   --prefix=/usr --buildtype=release \
   -Dsystemd-unit-prefix=/usr/lib/systemd/system
@@ -52,20 +56,26 @@ make -C "${work_dir}/pd-mapper" -j"$(nproc)"
 make -C "${work_dir}/pd-mapper" prefix=/usr install
 ldconfig
 
+install -d -m 0755 /usr/lib/firmware/qcom/sdm850/HUAWEI/AL09
+ln -sfn /usr/lib/firmware/ath10k/WCN3990/hw1.0/wlanmdsp.mbn \
+  /usr/lib/firmware/qcom/sdm850/HUAWEI/AL09/wlanmdsp.mbn
+
 for binary in /usr/bin/tqftpserv /usr/bin/pd-mapper /usr/bin/qrtr-lookup; do
   [[ -x ${binary} ]] || {
     echo "missing Qualcomm Wi-Fi helper: ${binary}" >&2
     exit 1
   }
 done
-for unit in tqftpserv.service pd-mapper.service ath10k-wcn3990.service; do
+for unit in tqftpserv.service pd-mapper.service rmtfs.service \
+  ath10k-wcn3990.service qcom-mss.service; do
   [[ -f /usr/lib/systemd/system/${unit} ]] || {
     echo "missing Qualcomm Wi-Fi unit: ${unit}" >&2
     exit 1
   }
 done
 
-systemctl enable tqftpserv.service pd-mapper.service ath10k-wcn3990.service
+systemctl enable tqftpserv.service pd-mapper.service rmtfs.service \
+  ath10k-wcn3990.service qcom-mss.service
 
 # dracut 依赖 pkgconf，不能在 chroot 中删掉它；这里仅清理编译期工具链。
 pacman --noconfirm -Rns gcc make meson ninja

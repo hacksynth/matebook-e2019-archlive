@@ -49,6 +49,12 @@ install -D -m 0644 "${CONFIG_DIR}/dracut.conf" \
   "${ROOTFS_DIR}/etc/dracut.conf.d/99-matebook-live.conf"
 install -D -m 0644 "${CONFIG_DIR}/ath10k-wcn3990.service" \
   "${ROOTFS_DIR}/usr/lib/systemd/system/ath10k-wcn3990.service"
+install -D -m 0644 "${CONFIG_DIR}/qcom-mss.service" \
+  "${ROOTFS_DIR}/usr/lib/systemd/system/qcom-mss.service"
+install -D -m 0755 "${CONFIG_DIR}/start-qcom-mss" \
+  "${ROOTFS_DIR}/usr/local/sbin/start-qcom-mss"
+install -D -m 0644 "${CONFIG_DIR}/qcom-wifi.modules-load.conf" \
+  "${ROOTFS_DIR}/etc/modules-load.d/qcom-wifi.conf"
 install -D -m 0644 "${CONFIG_DIR}/pd-mapper-retry.conf" \
   "${ROOTFS_DIR}/etc/systemd/system/pd-mapper.service.d/retry.conf"
 install -D -m 0755 "${SCRIPT_DIR}/install-qualcomm-wifi-services.sh" \

@@ -35,7 +35,11 @@ vendor-firmware/         PAK-AL09 专有 Qualcomm 固件及相关设备数据
 
 `configs/device.env` 记录目标设备硬件基线：PAK-AL09 / 产品版本 M1010、Snapdragon 850、8 GiB 内存、2160 × 1440 显示屏、Goodix GT7380 I2C-HID 触摸屏及 Qualcomm WCN3990。内核配置在 `configs/kernel.fragment`，包括 Live 所需的 SquashFS/OverlayFS、压缩 initramfs、USB/UFS/SD、USB-C QCOM PHY、eDP 显示、触控及 WCN3990 `ath10k_snoc` 支持。
 
-`configs/grub.cfg` 提供三个启动项：默认启动、禁用 QSEECom 排错，以及添加 `efi=novamap` 的 UEFI 排错。当前上游内核配置不含 6.16 的 Planck EC/UCSI/QSEECom 板级补丁，因此电池状态、EC 背光、合盖、Fn 键和部分 USB-C 角色切换功能可能不可用。Wi-Fi 使用上游 `ath10k` 的 `Huawei_Planck` 校准名；缺少设备专有校准/BDF 数据时可能无法工作。
+`configs/grub.cfg` 提供三个启动项：默认启动、禁用 QSEECom 排错，以及添加 `efi=novamap` 的 UEFI 排错。三个启动项都使用 dracut 的 `rd.live.ram=1`，在启动阶段把 SquashFS 根文件系统复制到 RAM；等待进入 Live 系统后即可拔掉 U 盘。该方式会额外占用约一份 SquashFS 大小的内存，目标设备的 8 GiB 内存应能满足要求，但启动会比直接从 U 盘读取更慢。当前上游内核配置不含 6.16 的 Planck EC/UCSI/QSEECom 板级补丁，因此电池状态、EC 背光、合盖、Fn 键和部分 USB-C 角色切换功能可能不可用。
+
+WCN3990 Wi-Fi 已在 PAK-AL09 的持久 UFS 安装会话中验证可创建 `wlan0` 并扫描热点。该链路需要固定版本构建的 `pd-mapper`、`tqftpserv`、`rmtfs`，启动 `qrtr_smd`，再把 mss remoteproc 启动到 WCN3990 的 WLFW QMI 服务。`configs/qcom-mss.service`、`configs/start-qcom-mss` 和 `configs/qcom-wifi.modules-load.conf` 用于持久化该启动顺序。固件路径仍需把 `ath10k/WCN3990/hw1.0/wlanmdsp.mbn` 映射到 `qcom/sdm850/HUAWEI/AL09/wlanmdsp.mbn`；Windows `bdwlan.*` 不能直接替代 Linux `board-2.bin`。
+
+持久安装的 initramfs 必须在根分区切换前找到 ADSP/CDSP/SLPI 固件；`configs/dracut-qcom-firmware.conf` 列出了需要携带的设备固件。当前 RTC 驱动不能写回硬件时钟，系统时间应在联网后由 NTP 客户端校正。
 
 ## 来源锁定与验证
 
