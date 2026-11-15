@@ -1,0 +1,14 @@
+[Unit]
+Description=Load Qualcomm WCN3990 WLAN driver
+Wants=pd-mapper.service tqftpserv.service
+After=pd-mapper.service tqftpserv.service network-pre.target
+Before=NetworkManager.service
+ConditionPathExists=/sys/bus/platform/devices/18800000.wifi
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/modprobe ath10k_snoc
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target

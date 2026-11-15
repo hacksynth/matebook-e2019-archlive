@@ -47,8 +47,10 @@ install -d -m 0755 "${ROOTFS_DIR}/usr/lib/modules"
 rsync -aH "${STAGE_DIR}/lib/modules/" "${ROOTFS_DIR}/usr/lib/modules/"
 install -D -m 0644 "${CONFIG_DIR}/dracut.conf" \
   "${ROOTFS_DIR}/etc/dracut.conf.d/99-matebook-live.conf"
-install -D -m 0644 "${CONFIG_DIR}/wcn3990.modules-load" \
-  "${ROOTFS_DIR}/etc/modules-load.d/10-wcn3990.conf"
+install -D -m 0644 "${CONFIG_DIR}/ath10k-wcn3990.service" \
+  "${ROOTFS_DIR}/usr/lib/systemd/system/ath10k-wcn3990.service"
+install -D -m 0755 "${SCRIPT_DIR}/install-qualcomm-wifi-services.sh" \
+  "${ROOTFS_DIR}/root/install-qualcomm-wifi-services.sh"
 install -m 0755 "$(command -v qemu-aarch64-static)" \
   "${ROOTFS_DIR}/usr/bin/qemu-aarch64-static"
 rm -f -- "${ROOTFS_DIR}/etc/resolv.conf"
@@ -134,6 +136,7 @@ MOTD
 depmod -a "${kernel_release}"
 modinfo -k "${kernel_release}" ath10k_snoc | grep -Fq 'qcom,wcn3990-wifi'
 modprobe -S "${kernel_release}" --dry-run ath10k_snoc
+/root/install-qualcomm-wifi-services.sh
 # dracut-ng >= 103 把模块目录从 90dmsquash-live 改名为 70dmsquash-live。
 dmsquash_found=0
 for dmsquash_dir in /usr/lib/dracut/modules.d/70dmsquash-live \

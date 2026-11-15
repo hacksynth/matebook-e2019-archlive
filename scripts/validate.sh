@@ -65,8 +65,9 @@ expected_files=(
   README.md LICENSE .gitignore
   configs/versions.env configs/device.env configs/kernel.fragment configs/dracut.conf
   configs/grub.cfg configs/grub-embedded.cfg configs/packages.aarch64
-  configs/wcn3990.modules-load
+  configs/ath10k-wcn3990.service
   scripts/fetch-sources.sh scripts/build-kernel.sh scripts/prepare-rootfs.sh
+  scripts/install-qualcomm-wifi-services.sh
   scripts/build-media.sh scripts/build.sh scripts/validate.sh
   winpe/README.md winpe/Build-WinPE.ps1 winpe/startnet.cmd
   winpe/tools/diagnose.ps1 winpe/tools/Open\ Command\ Prompt.cmd
@@ -115,10 +116,18 @@ for setting in CONFIG_CFG80211=m CONFIG_MAC80211=m CONFIG_ATH10K=m CONFIG_ATH10K
   grep -Fq "'${setting}'" "${REPO_ROOT}/scripts/build-kernel.sh" || \
     fail "build-kernel does not assert WCN3990 dependency: ${setting}"
 done
-grep -Fxq 'ath10k_snoc' "${CONFIG_DIR}/wcn3990.modules-load" || \
-  fail 'WCN3990 module is not configured for post-switchroot loading'
-grep -Fq 'wcn3990.modules-load' "${REPO_ROOT}/scripts/prepare-rootfs.sh" || \
-  fail 'prepare-rootfs does not install WCN3990 modules-load configuration'
+grep -Fxq 'ExecStart=/usr/bin/modprobe ath10k_snoc' \
+  "${CONFIG_DIR}/ath10k-wcn3990.service" || \
+  fail 'WCN3990 service does not load ath10k_snoc'
+grep -Fq 'After=pd-mapper.service tqftpserv.service' \
+  "${CONFIG_DIR}/ath10k-wcn3990.service" || \
+  fail 'WCN3990 service does not wait for firmware services'
+grep -Fq 'install-qualcomm-wifi-services.sh' \
+  "${REPO_ROOT}/scripts/prepare-rootfs.sh" || \
+  fail 'prepare-rootfs does not build the Qualcomm Wi-Fi services'
+grep -Fq '/usr/bin/tqftpserv' \
+  "${REPO_ROOT}/scripts/install-qualcomm-wifi-services.sh" || \
+  fail 'Qualcomm Wi-Fi service build does not verify tqftpserv'
 for setting in CONFIG_RD_ZSTD=y CONFIG_MODULE_COMPRESS_ZSTD=y; do
   grep -Fxq "${setting}" "${CONFIG_DIR}/kernel.fragment" || \
     fail "内核 fragment 缺少 initramfs/模块压缩配置：${setting}"
