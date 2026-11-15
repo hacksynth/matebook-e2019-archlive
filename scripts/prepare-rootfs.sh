@@ -49,6 +49,8 @@ install -D -m 0644 "${CONFIG_DIR}/dracut.conf" \
   "${ROOTFS_DIR}/etc/dracut.conf.d/99-matebook-live.conf"
 install -D -m 0644 "${CONFIG_DIR}/ath10k-wcn3990.service" \
   "${ROOTFS_DIR}/usr/lib/systemd/system/ath10k-wcn3990.service"
+install -D -m 0644 "${CONFIG_DIR}/pd-mapper-retry.conf" \
+  "${ROOTFS_DIR}/etc/systemd/system/pd-mapper.service.d/retry.conf"
 install -D -m 0755 "${SCRIPT_DIR}/install-qualcomm-wifi-services.sh" \
   "${ROOTFS_DIR}/root/install-qualcomm-wifi-services.sh"
 install -m 0755 "$(command -v qemu-aarch64-static)" \

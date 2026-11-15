@@ -7,6 +7,8 @@ ConditionPathExists=/sys/bus/platform/devices/18800000.wifi
 
 [Service]
 Type=oneshot
+TimeoutStartSec=90s
+ExecStartPre=/usr/bin/bash -c 'for i in {1..60}; do systemctl is-active --quiet pd-mapper.service && exit 0; sleep 1; done; exit 1'
 ExecStart=/usr/bin/modprobe ath10k_snoc
 RemainAfterExit=yes
 

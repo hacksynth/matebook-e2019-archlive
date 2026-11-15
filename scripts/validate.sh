@@ -66,6 +66,7 @@ expected_files=(
   configs/versions.env configs/device.env configs/kernel.fragment configs/dracut.conf
   configs/grub.cfg configs/grub-embedded.cfg configs/packages.aarch64
   configs/ath10k-wcn3990.service
+  configs/pd-mapper-retry.conf
   scripts/fetch-sources.sh scripts/build-kernel.sh scripts/prepare-rootfs.sh
   scripts/install-qualcomm-wifi-services.sh
   scripts/build-media.sh scripts/build.sh scripts/validate.sh
@@ -122,12 +123,21 @@ grep -Fxq 'ExecStart=/usr/bin/modprobe ath10k_snoc' \
 grep -Fq 'After=pd-mapper.service tqftpserv.service' \
   "${CONFIG_DIR}/ath10k-wcn3990.service" || \
   fail 'WCN3990 service does not wait for firmware services'
+grep -Fq 'systemctl is-active --quiet pd-mapper.service' \
+  "${CONFIG_DIR}/ath10k-wcn3990.service" || \
+  fail 'WCN3990 service does not wait for active pd-mapper'
 grep -Fq 'install-qualcomm-wifi-services.sh' \
   "${REPO_ROOT}/scripts/prepare-rootfs.sh" || \
   fail 'prepare-rootfs does not build the Qualcomm Wi-Fi services'
 grep -Fq '/usr/bin/tqftpserv' \
   "${REPO_ROOT}/scripts/install-qualcomm-wifi-services.sh" || \
   fail 'Qualcomm Wi-Fi service build does not verify tqftpserv'
+for jsn in adspr.jsn adspua.jsn cdspr.jsn modemuw.jsn slpir.jsn slpius.jsn; do
+  [[ -s "${REPO_ROOT}/vendor-firmware/qcom/sdm850/HUAWEI/AL09/${jsn}" ]] || \
+    fail "missing Qualcomm PD map: ${jsn}"
+done
+grep -Fq 'pd-mapper-retry.conf' "${REPO_ROOT}/scripts/prepare-rootfs.sh" || \
+  fail 'prepare-rootfs does not install pd-mapper retry policy'
 for setting in CONFIG_RD_ZSTD=y CONFIG_MODULE_COMPRESS_ZSTD=y; do
   grep -Fxq "${setting}" "${CONFIG_DIR}/kernel.fragment" || \
     fail "内核 fragment 缺少 initramfs/模块压缩配置：${setting}"
