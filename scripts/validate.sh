@@ -79,7 +79,7 @@ done
 grep -Fq 'permissions:' "${REPO_ROOT}/.github/workflows/build.yml" || fail 'build workflow 未声明权限'
 grep -Fq 'contents: read' "${REPO_ROOT}/.github/workflows/build.yml" || fail 'build workflow 缺少只读默认权限'
 grep -Fq 'contents: write' "${REPO_ROOT}/.github/workflows/build.yml" || fail 'build job 缺少发布 Release 的写权限'
-if grep -Fq 'upload-artifact' "${REPO_ROOT}/.github/workflows/build.yml"; then
+if grep -Fq 'uses: actions/upload-artifact' "${REPO_ROOT}/.github/workflows/build.yml"; then
   fail '构建不应再用 upload-artifact 打包 zip；应逐产物上传 Release asset'
 fi
 grep -Fq 'gh release upload' "${REPO_ROOT}/.github/workflows/build.yml" || \
