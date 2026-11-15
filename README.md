@@ -74,8 +74,8 @@ Fn 键、部分 USB-C 角色切换）在 v0.2.0 中可能不可用；这些功�
 
 | 输入 | 固定版本 / URL | 构建时验证 |
 |---|---|---|
-| Linux 内核 | `https://github.com/gregkh/linux.git`（stable 镜像，tag 对象与 kernel.org 一致；kernel.org 为回退），tag `v7.3.4`，提交 `7595a62d45ee1a2297eafa5f2ef5d0a45142d84d` | 只 fetch 该 tag（depth=1），比较完整 commit ID；分支/tag 被移动会导致构建失败关闭 |
-| Generic AArch64 ALARM rootfs | `http://fl.us.mirror.archlinuxarm.org/os/ArchLinuxARM-aarch64-latest.tar.gz`，上游时间 `2026-08-05T12:41:36Z` | MD5 `23eec86365b24f7913c403e8f4e8719b` 锁定字节（**不**作为抗攻击哈希）；同时强制验证 detached OpenPGP 签名，签名者完整指纹必须为 `68B3537F39A313B3E574D06777193F152BDBE6A6` |
+| Linux 内核 | `https://github.com/gregkh/linux.git`（stable 镜像，tag 对象与 kernel.org 一致；kernel.org 为回退），tag `v7.3.4`，提交 `7595a62d45ee1a2297eafa5f2ef5d0a45142d84d` | tag + 提交 SHA + `make olddefconfig` 产物校验 |
+| Generic AArch64 ALARM rootfs | `http://fl.us.mirror.archlinuxarm.org/os/ArchLinuxARM-aarch64-latest.tar.gz`，上游时间 `2026-08-05T12:41:36Z` | MD5 `23eec86365b24f7913c403e8f4e8719b` 锁定 |
 | ALARM 公钥 | `hkps://keyserver.ubuntu.com`，失败时回退 HTTPS keyserver | 取得后比较 40 位完整指纹 |
 | 构建产物 | 本次 `out/` | 对所有发布文件生成 `SHA256SUMS`；workflow 上传与 Release 前再次 `sha256sum --check` |
 
@@ -98,11 +98,15 @@ ALARM 的下载镜像只提供 HTTP，完整 OpenPGP 验证才是 rootfs 的真�
    GRUB 生成 `BOOTAA64.EFI`（内嵌提供 `devicetree` 命令的 `fdt.mod`），由 dracut
    的 `dmsquash-live` 生成 live initramfs（dracut-ng ≥ 103 的目录是
    `70dmsquash-live`，脚本同时兼容旧的 `90dmsquash-live`）；
-6. 制作 ISO 与 GPT raw 镜像（ESP + ext4 Live 分区），生成校验和。
+6. 制作 ISO �� GPT raw 镜像（ESP + ext4 Live 分区），生成校验和。
 
 chroot 内会关闭 pacman 7 的下载 Landlock 沙箱（qemu-user 不支持）并规避
 `CheckSpace` 误报，但**包签名校验保持启用**；同时移除全量固件元包与
 AMD/NVIDIA/Intel 等无关平台的固件拆分包，只保留 Qualcomm/Atheros。
+此外，`scripts/install-qualcomm-wifi-services.sh` 仅清理编译期工具链，不卸载
+`pkgconf`；`dracut` 生成 `dmsquash-live` initramfs 时依赖它，移除后会触发
+`removing pkgconf breaks dependency 'pkgconf' required by dracut`。因此编译工具链
+可被清理，但运行时依赖必须保留。
 
 ## 固件：缺失影响与法律边界
 
@@ -166,7 +170,7 @@ sudo CLEAN_INTERMEDIATES=1 bash scripts/build.sh
 (cd out && sha256sum --check SHA256SUMS)
 ```
 
-也可以像 CI 一样分阶段构建，便于复用内核产物或只重跑介质阶段：
+也可以像 CI 一样分阶段构建，便于复用内��产物或只重跑介质阶段：
 
 ```bash
 sudo STAGE=kernel CLEAN_INTERMEDIATES=1 bash scripts/build.sh  # 取源 + 编译内核 + GPL 源码
