@@ -64,6 +64,7 @@ grep -Fq '内核提交不匹配' "${REPO_ROOT}/scripts/fetch-sources.sh" || \
 expected_files=(
   README.md LICENSE .gitignore
   configs/versions.env configs/device.env configs/kernel.fragment configs/dracut.conf
+  configs/packages-gui.aarch64
   configs/grub.cfg configs/grub-embedded.cfg configs/packages.aarch64
   configs/ath10k-wcn3990.service
   configs/pd-mapper-retry.conf
@@ -88,6 +89,16 @@ grep -Fq -- '--clobber' "${REPO_ROOT}/.github/workflows/build.yml" || \
   fail 'Release asset 上传未启用覆盖'
 grep -Fq 'tag="latest"' "${REPO_ROOT}/.github/workflows/build.yml" || \
   fail 'main 构建未更新 latest 预发布'
+grep -Fq 'for flavor in minimal gui' "${REPO_ROOT}/.github/workflows/build.yml" || \
+  fail 'workflow 未同时构建 minimal 与 gui flavor'
+grep -Fq 'LIVE_FLAVOR=' "${REPO_ROOT}/.github/workflows/build.yml" || \
+  fail 'workflow 未传递 LIVE_FLAVOR'
+grep -Fq 'packages-gui.aarch64' "${REPO_ROOT}/scripts/prepare-rootfs.sh" || \
+  fail 'prepare-rootfs 未加载 GUI 包列表'
+grep -Fq 'sddm.service' "${REPO_ROOT}/scripts/prepare-rootfs.sh" || \
+  fail 'GUI flavor 未启用 sddm'
+grep -Fq 'LIVE_IMAGE_BASENAME' "${REPO_ROOT}/scripts/build-media.sh" || \
+  fail '介质文件名未区分 flavor'
 grep -Fq 'devicetree /boot/dtb/qcom/sdm850-huawei-matebook-e-2019.dtb' \
   "${CONFIG_DIR}/grub.cfg" || fail 'GRUB 未加载 PAK-AL09 设备树'
 grep -Fq 'rd.live.image' "${CONFIG_DIR}/grub.cfg" || fail 'GRUB 缺少 dracut live 参数'

@@ -73,8 +73,10 @@ build_media_stage() {
   fi
   bash "${SCRIPT_DIR}/build-media.sh"
 
-  install -m 0644 "${WORK_DIR}/iso-root/BUILD-INFO.txt" "${OUT_DIR}/BUILD-INFO.txt"
-  install -m 0644 "${WORK_DIR}/live/packages.txt" "${OUT_DIR}/packages.txt"
+  install -m 0644 "${WORK_DIR}/iso-root/BUILD-INFO.txt" \
+    "${OUT_DIR}/BUILD-INFO${LIVE_FLAVOR_SUFFIX}.txt"
+  install -m 0644 "${WORK_DIR}/live/packages.txt" \
+    "${OUT_DIR}/packages${LIVE_FLAVOR_SUFFIX}.txt"
   install -m 0644 "${WORK_DIR}/boot/kernel.config" "${OUT_DIR}/kernel.config"
   install -m 0644 "${CONFIG_DIR}/versions.env" "${OUT_DIR}/SOURCE-LOCK.env"
   install -m 0644 "${CONFIG_DIR}/device.env" "${OUT_DIR}/DEVICE-PROFILE.env"
@@ -87,10 +89,9 @@ build_media_stage() {
     mv -f -- "${checksum_tmp}" SHA256SUMS
   )
   [[ -s ${OUT_DIR}/SHA256SUMS ]] || die "SHA256SUMS 未生成"
-  if ((clean_intermediates)); then
-    log "低磁盘模式：发布元数据已复制，删除剩余工作目录"
-    safe_remove_dir "${WORK_DIR}"
-  fi
+  # 两个 flavor 共用同一份 WORK_DIR 的内核产物，因此这里不删除 WORK_DIR；
+  # GitHub runner 是一次性的，本地可自行清理 .work/。
+  log "介质阶段完成（flavor=${LIVE_FLAVOR}）：${LIVE_IMAGE_BASENAME}"
 }
 
 case "${stage}" in

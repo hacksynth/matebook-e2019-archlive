@@ -1,0 +1,29 @@
+# GUI flavor（LIVE_FLAVOR=gui）额外安装的包；minimal flavor 不读取此文件。
+# 目标：触控可用的精简 KDE Plasma 6 桌面，避免 plasma-meta 带来整套 KDE 应用。
+
+# 桌面与显示管理
+plasma-desktop
+plasma-workspace
+kscreen
+plasma-nm
+plasma-pa
+sddm
+kwallet-pam
+konsole
+dolphin
+xdg-desktop-portal
+xdg-desktop-portal-kde
+
+# 图形/媒体运行库（Adreno 走 mesa freedreno）
+mesa
+vulkan-freedreno
+pipewire
+pipewire-pulse
+wireplumber
+
+# 字体与本地化（含中日韩字形）
+noto-fonts
+noto-fonts-cjk
+
+# 音频路由描述
+alsa-ucm-conf

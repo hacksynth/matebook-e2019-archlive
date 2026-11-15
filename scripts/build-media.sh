@@ -15,9 +15,9 @@ BOOT_DIR="${WORK_DIR}/boot"
 LIVE_DIR="${WORK_DIR}/live"
 ISO_ROOT="${WORK_DIR}/iso-root"
 EFI_IMAGE="${ISO_ROOT}/EFI/efiboot.img"
-RAW_IMAGE="${WORK_DIR}/${IMAGE_BASENAME}.img"
-ISO_OUTPUT="${OUT_DIR}/${IMAGE_BASENAME}.iso"
-IMG_OUTPUT="${OUT_DIR}/${IMAGE_BASENAME}.img.zst"
+RAW_IMAGE="${WORK_DIR}/${LIVE_IMAGE_BASENAME}.img"
+ISO_OUTPUT="${OUT_DIR}/${LIVE_IMAGE_BASENAME}.iso"
+IMG_OUTPUT="${OUT_DIR}/${LIVE_IMAGE_BASENAME}.img.zst"
 KERNEL_RELEASE="$(<"${WORK_DIR}/kernel-release")"
 
 [[ -s ${BOOT_DIR}/Image ]] || die "缺少内核 Image"
@@ -43,8 +43,14 @@ firmware_mode="未注入 PAK-AL09 专有固件"
 if [[ $(<"${LIVE_DIR}/firmware-mode") == injected ]]; then
   firmware_mode="已从构建者指定的 VENDOR_FIRMWARE_DIR 注入；见 squashfs 内 vendor-firmware.sha256"
 fi
+if [[ ${LIVE_FLAVOR} == gui ]]; then
+  desktop_desc="KDE Plasma（sddm 自动登录 live）"
+else
+  desktop_desc="文本控制台（multi-user）"
+fi
 cat >"${ISO_ROOT}/BUILD-INFO.txt" <<BUILD_INFO
 介质：${DEVICE_VENDOR} ${DEVICE_PRODUCT} ${DEVICE_MODEL} Arch Linux ARM Live
+桌面：${desktop_desc}
 产品版本：${DEVICE_PRODUCT_VERSION}
 SoC：${DEVICE_SOC}
 内存基线：${DEVICE_MEMORY}
@@ -79,7 +85,7 @@ xorriso -as mkisofs -iso-level 3 -full-iso9660-filenames -volid "${VOLUME_LABEL}
   -eltorito-alt-boot -e EFI/efiboot.img -no-emul-boot -isohybrid-gpt-basdat \
   -output "${ISO_OUTPUT}" "${ISO_ROOT}"
 xorriso -indev "${ISO_OUTPUT}" -report_el_torito plain \
-  >"${OUT_DIR}/${IMAGE_BASENAME}.iso.el-torito.txt" 2>&1
+  >"${OUT_DIR}/${LIVE_IMAGE_BASENAME}.iso.el-torito.txt" 2>&1
 
 loop_device=""
 mounts=()

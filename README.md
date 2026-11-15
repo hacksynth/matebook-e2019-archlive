@@ -6,10 +6,18 @@
 
 ## 构建产物
 
-- `matebook-e2019-archlive-7.3.4.img.zst`：推荐的 GPT raw USB 镜像，含 128 MiB ESP 和 ext4 Live 分区；
-- `matebook-e2019-archlive-7.3.4.iso`：AA64 UEFI El Torito ISO；
-- `linux-source-7.3.4.tar.zst`：构建所用完整内核源码归档；
-- `SHA256SUMS`、`BUILD-INFO.txt`、`SOURCE-LOCK.env`、`DEVICE-PROFILE.env`、`packages.txt`、`kernel.config` 和 ISO El Torito 检查报告。
+每次构建同时生成两个 flavor（内核只编译一次）：
+
+| flavor | 产物 | 桌面 |
+|---|---|---|
+| `minimal` | `matebook-e2019-archlive-7.3.4.img.zst` / `.iso` | 文本控制台（multi-user） |
+| `gui` | `matebook-e2019-archlive-7.3.4-gui.img.zst` / `.iso` | KDE Plasma，`sddm` 自动登录 `live` |
+
+两种介质都附带 `SHA256SUMS`、`BUILD-INFO*.txt`、`SOURCE-LOCK.env`、`DEVICE-PROFILE.env`、
+`packages*.txt`、`kernel.config`、`linux-source-7.3.4.tar.zst` 与 ISO El Torito 检查报告。
+
+GUI 包列表在 `configs/packages-gui.aarch64`，只安装精简 Plasma 6（桌面、屏幕、网络、音频、
+Dolphin/Konsole、Noto/CJK 字体、PipeWire、Mesa freedreno），避免 `plasma-meta` 的整套应用。
 
 镜像使用未签名的 ARM64 GRUB，不支持 Secure Boot。GRUB 显式加载设备树、内核 `Image`、dracut initramfs 与 SquashFS Live 根文件系统。部分设备固件无法将 USB ISO 当作光驱枚举，通常优先尝试 raw 镜像。
 
@@ -73,8 +81,13 @@ sudo CLEAN_INTERMEDIATES=1 bash scripts/build.sh
 
 ```bash
 sudo STAGE=kernel CLEAN_INTERMEDIATES=1 bash scripts/build.sh
-sudo STAGE=media  CLEAN_INTERMEDIATES=1 bash scripts/build.sh
+# 两个 flavor 共用内核产物，介质阶段不要开 CLEAN_INTERMEDIATES
+for flavor in minimal gui; do
+  sudo STAGE=media CLEAN_INTERMEDIATES=0 LIVE_FLAVOR="${flavor}" bash scripts/build.sh
+done
 ```
+
+只构建文本版或只构建 GUI 版时，单独设置 `LIVE_FLAVOR=minimal` 或 `LIVE_FLAVOR=gui` 即可。
 
 构建脚本需要 root 执行。不要在不受信任的 fork 上用 sudo 执行。
 

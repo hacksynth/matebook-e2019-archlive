@@ -67,11 +67,17 @@ jobs:
           path: .cache/kernel-cache
           key: kernel-${{ hashFiles('configs/versions.env', 'configs/device.env', 'configs/kernel.fragment', 'scripts/build-kernel.sh', 'scripts/fetch-sources.sh') }}
 
-      - name: Build rootfs and media
+      - name: Build rootfs and media (minimal + gui)
         env:
-          CLEAN_INTERMEDIATES: '1'
+          CLEAN_INTERMEDIATES: '0'
           STAGE: media
-        run: sudo --preserve-env=GITHUB_ACTIONS,CLEAN_INTERMEDIATES,STAGE bash scripts/build.sh
+        run: |
+          set -Eeuo pipefail
+          for flavor in minimal gui; do
+            echo "=== building Live flavor: ${flavor} ==="
+            sudo --preserve-env=GITHUB_ACTIONS,CLEAN_INTERMEDIATES,STAGE \
+              env LIVE_FLAVOR="${flavor}" bash scripts/build.sh
+          done
 
       - name: Report final disk use
         if: always()

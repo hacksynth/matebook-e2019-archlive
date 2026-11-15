@@ -63,13 +63,20 @@ install -m 0644 "${CONFIG_DIR}/grub-embedded.cfg" \
 
 mapfile -t packages < <(sed -e 's/[[:space:]]*#.*$//' -e '/^[[:space:]]*$/d' \
   "${CONFIG_DIR}/packages.aarch64")
+if [[ ${LIVE_FLAVOR} == gui ]]; then
+  mapfile -t gui_packages < <(sed -e 's/[[:space:]]*#.*$//' -e '/^[[:space:]]*$/d' \
+    "${CONFIG_DIR}/packages-gui.aarch64")
+  packages+=("${gui_packages[@]}")
+fi
 printf '%s\n' "${packages[@]}" >"${ROOTFS_DIR}/root/live-packages"
+printf '%s\n' "${LIVE_FLAVOR}" >"${ROOTFS_DIR}/root/live-flavor"
 
 cat >"${ROOTFS_DIR}/root/configure-live.sh" <<'CHROOT_SCRIPT'
 #!/usr/bin/env bash
 set -Eeuo pipefail
 
 kernel_release="$(</root/kernel-release)"
+live_flavor="$(</root/live-flavor)"
 mapfile -t packages </root/live-packages
 
 # pacman 7 的下载沙箱依赖 Landlock（qemu-user chroot 不支持），且会切换到 alpm 用户。
@@ -120,7 +127,19 @@ chmod 0440 /etc/sudoers.d/10-live
 
 systemctl enable NetworkManager.service
 systemctl disable sshd.service >/dev/null 2>&1 || true
-systemctl set-default multi-user.target
+if [[ ${live_flavor} == gui ]]; then
+  systemctl enable sddm.service
+  systemctl set-default graphical.target
+  install -d -m 0755 /etc/sddm.conf.d
+  cat >/etc/sddm.conf.d/10-live-autologin.conf <<'SDDM'
+[Autologin]
+User=live
+Session=plasma
+Relogin=false
+SDDM
+else
+  systemctl set-default multi-user.target
+fi
 
 # 在原生 AArch64 用户空间内生成 AA64 EFI，避免宿主架构 GRUB 工具混入。
 command -v grub-mkstandalone >/dev/null 2>&1
@@ -134,7 +153,9 @@ PAK-AL09 Arch Linux ARM Live（实验性）
 用户/密码：live/live；sudo 无密码。默认不会安装系统或写入内部 UFS。
 专有固件未随项目提供；请先阅读介质根目录的 README/BUILD-INFO。
 MOTD
-
+if [[ ${live_flavor} == gui ]]; then
+  printf '桌面：KDE Plasma（sddm 自动登录用户 live）\n' >>/etc/motd
+fi
 depmod -a "${kernel_release}"
 modinfo -k "${kernel_release}" ath10k_snoc | grep -Fq 'qcom,wcn3990-wifi'
 modprobe -S "${kernel_release}" --dry-run ath10k_snoc
@@ -210,7 +231,7 @@ install -m 0644 "${ROOTFS_DIR}/boot/BOOTAA64.EFI" "${BOOT_DIR}/BOOTAA64.EFI"
 install -m 0644 "${ROOTFS_DIR}/root/packages.txt" "${LIVE_DIR}/packages.txt"
 
 rm -f -- "${ROOTFS_DIR}/usr/bin/qemu-aarch64-static" \
-  "${ROOTFS_DIR}/root/configure-live.sh" "${ROOTFS_DIR}/root/live-packages" \
+  "${ROOTFS_DIR}/root/configure-live.sh" "${ROOTFS_DIR}/root/live-packages" "${ROOTFS_DIR}/root/live-flavor" \
   "${ROOTFS_DIR}/root/kernel-release" "${ROOTFS_DIR}/root/grub-embedded.cfg" \
   "${ROOTFS_DIR}/root/packages.txt"
 rm -rf -- "${ROOTFS_DIR:?}/boot/"*
