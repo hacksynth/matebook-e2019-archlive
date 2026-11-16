@@ -67,13 +67,13 @@ jobs:
           path: .cache/kernel-cache
           key: kernel-${{ hashFiles('configs/versions.env', 'configs/device.env', 'configs/kernel.fragment', 'scripts/build-kernel.sh', 'scripts/fetch-sources.sh') }}
 
-      - name: Build rootfs and media (minimal + gui)
+      - name: Build rootfs and media (minimal + kde + gnome + xfce)
         env:
-          CLEAN_INTERMEDIATES: '0'
+          CLEAN_INTERMEDIATES: '1'
           STAGE: media
         run: |
           set -Eeuo pipefail
-          for flavor in minimal gui; do
+          for flavor in minimal kde gnome xfce; do
             echo "=== building Live flavor: ${flavor} ==="
             sudo --preserve-env=GITHUB_ACTIONS,CLEAN_INTERMEDIATES,STAGE \
               env LIVE_FLAVOR="${flavor}" bash scripts/build.sh

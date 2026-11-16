@@ -1,0 +1,16 @@
+# XFCE Live packages (LIVE_FLAVOR=xfce).
+
+lightdm
+lightdm-gtk-greeter
+xorg-server
+xorg-xauth
+xorg-xinit
+xf86-input-libinput
+xfce4
+xfce4-terminal
+thunar
+network-manager-applet
+xfce4-pulseaudio-plugin
+polkit-gnome
+gnome-keyring
+xdg-desktop-portal-gtk

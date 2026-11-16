@@ -43,11 +43,12 @@ firmware_mode="未注入 PAK-AL09 专有固件"
 if [[ $(<"${LIVE_DIR}/firmware-mode") == injected ]]; then
   firmware_mode="已从构建者指定的 VENDOR_FIRMWARE_DIR 注入；见 squashfs 内 vendor-firmware.sha256"
 fi
-if [[ ${LIVE_FLAVOR} == gui ]]; then
-  desktop_desc="KDE Plasma（sddm 自动登录 live）"
-else
-  desktop_desc="文本控制台（multi-user）"
-fi
+case "${LIVE_DESKTOP}" in
+  kde) desktop_desc="KDE Plasma（sddm 自动登录 live）" ;;
+  gnome) desktop_desc="GNOME（gdm 自动登录 live）" ;;
+  xfce) desktop_desc="XFCE（lightdm 自动登录 live）" ;;
+  minimal) desktop_desc="文本控制台（multi-user）" ;;
+esac
 cat >"${ISO_ROOT}/BUILD-INFO.txt" <<BUILD_INFO
 介质：${DEVICE_VENDOR} ${DEVICE_PRODUCT} ${DEVICE_MODEL} Arch Linux ARM Live
 桌面：${desktop_desc}
@@ -140,4 +141,5 @@ rm -f -- "${IMG_OUTPUT}"
 zstd --force --threads=0 -19 --long=27 -o "${IMG_OUTPUT}" "${RAW_IMAGE}"
 
 [[ -s ${ISO_OUTPUT} && -s ${IMG_OUTPUT} ]] || die "介质产物不完整"
+rm -f -- "${RAW_IMAGE}"
 log "ISO 与 raw .img.zst 已生成"

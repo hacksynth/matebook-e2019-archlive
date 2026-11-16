@@ -67,9 +67,11 @@ build_media_stage() {
   fi
   bash "${SCRIPT_DIR}/prepare-rootfs.sh"
   if ((clean_intermediates)); then
-    log "低磁盘模式：squashfs/initramfs 完成，删除展开 rootfs 与模块 staging"
+    log "低磁盘模式：删除展开 rootfs；保留内核 staging 供其他 flavor 复用"
     safe_remove_dir "${WORK_DIR}/rootfs"
-    safe_remove_dir "${WORK_DIR}/kernel-stage"
+    if [[ ${stage} == all ]]; then
+      safe_remove_dir "${WORK_DIR}/kernel-stage"
+    fi
   fi
   bash "${SCRIPT_DIR}/build-media.sh"
 
@@ -89,7 +91,7 @@ build_media_stage() {
     mv -f -- "${checksum_tmp}" SHA256SUMS
   )
   [[ -s ${OUT_DIR}/SHA256SUMS ]] || die "SHA256SUMS 未生成"
-  # 两个 flavor 共用同一份 WORK_DIR 的内核产物，因此这里不删除 WORK_DIR；
+  # 所有 flavor 共用同一份 WORK_DIR 的内核产物，因此这里不删除 WORK_DIR；
   # GitHub runner 是一次性的，本地可自行清理 .work/。
   log "介质阶段完成（flavor=${LIVE_FLAVOR}）：${LIVE_IMAGE_BASENAME}"
 }
