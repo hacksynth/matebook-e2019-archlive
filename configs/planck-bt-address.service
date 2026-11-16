@@ -1,0 +1,13 @@
+[Unit]
+Description=Configure a local Bluetooth address for Huawei Planck WCN3990
+Requires=bluetooth.service
+After=bluetooth.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/set-planck-bt-address
+TimeoutStartSec=180s
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target

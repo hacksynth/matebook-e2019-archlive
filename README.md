@@ -6,18 +6,22 @@
 
 ## 构建产物
 
-每次构建同时生成两个 flavor（内核只编译一次）：
+每次构建同时生成四个 flavor（内核只编译一次）：
 
 | flavor | 产物 | 桌面 |
 |---|---|---|
 | `minimal` | `matebook-e2019-archlive-7.3.4.img.zst` / `.iso` | 文本控制台（multi-user） |
-| `gui` | `matebook-e2019-archlive-7.3.4-gui.img.zst` / `.iso` | KDE Plasma，`sddm` 自动登录 `live` |
+| `kde` | `matebook-e2019-archlive-7.3.4-kde.img.zst` / `.iso` | KDE Plasma，`sddm` 自动登录 `live` |
+| `gnome` | `matebook-e2019-archlive-7.3.4-gnome.img.zst` / `.iso` | GNOME，`gdm` 自动登录 `live` |
+| `xfce` | `matebook-e2019-archlive-7.3.4-xfce.img.zst` / `.iso` | XFCE，`lightdm` 自动登录 `live` |
 
-两种介质都附带 `SHA256SUMS`、`BUILD-INFO*.txt`、`SOURCE-LOCK.env`、`DEVICE-PROFILE.env`、
+四种介质都附带 `SHA256SUMS`、`BUILD-INFO*.txt`、`SOURCE-LOCK.env`、`DEVICE-PROFILE.env`、
 `packages*.txt`、`kernel.config`、`linux-source-7.3.4.tar.zst` 与 ISO El Torito 检查报告。
 
-GUI 包列表在 `configs/packages-gui.aarch64`，只安装精简 Plasma 6（桌面、屏幕、网络、音频、
-Dolphin/Konsole、Noto/CJK 字体、PipeWire、Mesa freedreno），避免 `plasma-meta` 的整套应用。
+GUI 共享包位于 `configs/packages-gui-common.aarch64`，桌面专属包分别为
+`packages-kde.aarch64`、`packages-gnome.aarch64` 和 `packages-xfce.aarch64`。三种桌面都使用
+Noto/CJK 字体、PipeWire、Mesa freedreno，并分别由 SDDM、GDM 和 LightDM 自动登录 `live`。
+`LIVE_FLAVOR=gui` 仍作为 KDE 的历史兼容别名。
 
 镜像使用未签名的 ARM64 GRUB，不支持 Secure Boot。GRUB 显式加载设备树、内核 `Image`、dracut initramfs 与 SquashFS Live 根文件系统。部分设备固件无法将 USB ISO 当作光驱枚举，通常优先尝试 raw 镜像。
 
@@ -37,7 +41,9 @@ vendor-firmware/         PAK-AL09 专有 Qualcomm 固件及相关设备数据
 
 `configs/grub.cfg` 提供三个启动项：默认启动、禁用 QSEECom 排错，以及添加 `efi=novamap` 的 UEFI 排错。三个启动项都使用 dracut 的 `rd.live.ram=1`，在启动阶段把 SquashFS 根文件系统复制到 RAM；等待进入 Live 系统后即可拔掉 U 盘。该方式会额外占用约一份 SquashFS 大小的内存，目标设备的 8 GiB 内存应能满足要求，但启动会比直接从 U 盘读取更慢。当前上游内核配置不含 6.16 的 Planck EC/UCSI/QSEECom 板级补丁，因此电池状态、EC 背光、合盖、Fn 键和部分 USB-C 角色切换功能可能不可用。
 
-WCN3990 Wi-Fi 已在 PAK-AL09 的持久 UFS 安装会话中验证可创建 `wlan0` 并扫描热点。Live 镜像使用相同链路：先禁止 udev 按设备别名过早加载驱动，再启动 `rmtfs`、`pd-mapper`、`tqftpserv` 和 MSS remoteproc，随后显式加载 `ath10k_snoc`，等待 `wlan0` 出现后才启动 NetworkManager。安装脚本优先使用 `linux-firmware-atheros` 的 WCN3990 `wlanmdsp.mbn`，仅在缺失时回退到设备目录中的 Windows 文件。发行版 `board-2.bin` 已包含 `Huawei_Planck` 校准项；Windows `bdwlan.*` 不能直接替代它。Live 中包含 `nmcli`/`nmtui`、`iw`、`rfkill`，GUI flavor 还包含 Plasma NetworkManager 面板。
+WCN3990 Wi-Fi 已在 PAK-AL09 的持久 UFS 安装会话中验证可创建 `wlan0` 并扫描热点。Live 镜像使用相同链路：先禁止 udev 按设备别名过早加载驱动，再启动 `rmtfs`、`pd-mapper`、`tqftpserv` 和 MSS remoteproc，随后显式加载 `ath10k_snoc`，等待 `wlan0` 出现后才启动 NetworkManager。安装脚本优先使用 `linux-firmware-atheros` 的 WCN3990 `wlanmdsp.mbn`，仅在缺失时回退到设备目录中的 Windows 文件。发行版 `board-2.bin` 已包含 `Huawei_Planck` 校准项；Windows `bdwlan.*` 不能直接替代它。Live 中包含 `nmcli`/`nmtui`、`iw`、`rfkill`，三种桌面 flavor 都带网络管理面板。
+
+同一 WCN3990 的蓝牙控制器在 PAK-AL09 上可能报告全零 BD_ADDR。Live 会由 `planck-bt-address.service` 根据 `/etc/machine-id` 生成本地管理蓝牙地址，使 BlueZ 完成控制器配置；系统同时显式安装 `bluez` 和 `bluez-utils`。
 
 持久安装的 initramfs 必须在根分区切换前找到 ADSP/CDSP/SLPI 固件；`configs/dracut-qcom-firmware.conf` 列出了需要携带的设备固件。当前 RTC 驱动不能写回硬件时钟，系统时间应在联网后由 NTP 客户端校正。
 
@@ -68,7 +74,7 @@ sudo VENDOR_FIRMWARE_DIR=/absolute/path/to/firmware-tree bash scripts/build.sh
 
 ## 本地构建
 
-建议在 Ubuntu 24.04 x86_64、至少 8 GiB 内存的干净环境构建；默认保留中间文件时准备约 35 GiB 空间。安装宿主依赖并运行：
+建议在 Ubuntu 24.04 x86_64、至少 8 GiB 内存的干净环境构建；四个 flavor 加内核源码缓存建议准备约 50 GiB 空间。安装宿主依赖并运行：
 
 ```bash
 sudo apt-get update
@@ -85,13 +91,13 @@ sudo CLEAN_INTERMEDIATES=1 bash scripts/build.sh
 
 ```bash
 sudo STAGE=kernel CLEAN_INTERMEDIATES=1 bash scripts/build.sh
-# 两个 flavor 共用内核产物，介质阶段不要开 CLEAN_INTERMEDIATES
-for flavor in minimal gui; do
-  sudo STAGE=media CLEAN_INTERMEDIATES=0 LIVE_FLAVOR="${flavor}" bash scripts/build.sh
+# 四个 flavor 共用内核产物；介质阶段会逐 flavor 清理 rootfs 和未压缩 raw 镜像
+for flavor in minimal kde gnome xfce; do
+  sudo STAGE=media CLEAN_INTERMEDIATES=1 LIVE_FLAVOR="${flavor}" bash scripts/build.sh
 done
 ```
 
-只构建文本版或只构建 GUI 版时，单独设置 `LIVE_FLAVOR=minimal` 或 `LIVE_FLAVOR=gui` 即可。
+只构建某个桌面时，将 `LIVE_FLAVOR` 设为 `minimal`、`kde`、`gnome` 或 `xfce`。
 
 构建脚本需要 root 执行。不要在不受信任的 fork 上用 sudo 执行。
 

@@ -1,0 +1,14 @@
+# KDE Plasma desktop packages (LIVE_FLAVOR=kde or legacy gui).
+
+# 桌面与显示管理
+plasma-desktop
+plasma-workspace
+kscreen
+plasma-nm
+plasma-pa
+sddm
+kwallet-pam
+konsole
+dolphin
+xdg-desktop-portal
+xdg-desktop-portal-kde

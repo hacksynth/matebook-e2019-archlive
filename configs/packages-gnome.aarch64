@@ -1,0 +1,17 @@
+# GNOME Live packages (LIVE_FLAVOR=gnome).
+
+gdm
+gnome-backgrounds
+gnome-console
+gnome-disk-utility
+gnome-keyring
+gnome-session
+gnome-settings-daemon
+gnome-shell
+gnome-control-center
+gnome-software
+gnome-system-monitor
+gnome-text-editor
+gnome-tweaks
+nautilus
+xdg-desktop-portal-gnome

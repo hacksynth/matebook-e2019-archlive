@@ -65,9 +65,11 @@ grep -Fq '内核提交不匹配' "${REPO_ROOT}/scripts/fetch-sources.sh" || \
 expected_files=(
   README.md LICENSE .gitignore
   configs/versions.env configs/device.env configs/kernel.fragment configs/dracut.conf
-  configs/packages-gui.aarch64
+  configs/packages-gui-common.aarch64 configs/packages-kde.aarch64
+  configs/packages-gnome.aarch64 configs/packages-xfce.aarch64
   configs/grub.cfg configs/grub-embedded.cfg configs/packages.aarch64
   configs/ath10k-wcn3990.service
+  configs/planck-bt-address.service configs/set-planck-bt-address
   configs/qcom-mss.service configs/qcom-wifi.modules-load.conf
   configs/start-qcom-mss configs/dracut-qcom-firmware.conf
   configs/pd-mapper-retry.conf
@@ -79,6 +81,8 @@ expected_files=(
 for relative in "${expected_files[@]}"; do
   [[ -f ${REPO_ROOT}/${relative} ]] || fail "缺少文件：${relative}"
 done
+bash -n "${CONFIG_DIR}/set-planck-bt-address" || \
+  fail '蓝牙地址辅助脚本语法无效'
 
 grep -Fq 'permissions:' "${REPO_ROOT}/.github/workflows/build.yml" || fail 'build workflow 未声明权限'
 grep -Fq 'contents: read' "${REPO_ROOT}/.github/workflows/build.yml" || fail 'build workflow 缺少只读默认权限'
@@ -92,14 +96,38 @@ grep -Fq -- '--clobber' "${REPO_ROOT}/.github/workflows/build.yml" || \
   fail 'Release asset 上传未启用覆盖'
 grep -Fq 'tag="latest"' "${REPO_ROOT}/.github/workflows/build.yml" || \
   fail 'main 构建未更新 latest 预发布'
-grep -Fq 'for flavor in minimal gui' "${REPO_ROOT}/.github/workflows/build.yml" || \
-  fail 'workflow 未同时构建 minimal 与 gui flavor'
+grep -Fq 'for flavor in minimal kde gnome xfce' \
+  "${REPO_ROOT}/.github/workflows/build.yml" || \
+  fail 'workflow 未同时构建 minimal、kde、gnome 与 xfce flavor'
 grep -Fq 'LIVE_FLAVOR=' "${REPO_ROOT}/.github/workflows/build.yml" || \
   fail 'workflow 未传递 LIVE_FLAVOR'
-grep -Fq 'packages-gui.aarch64' "${REPO_ROOT}/scripts/prepare-rootfs.sh" || \
-  fail 'prepare-rootfs 未加载 GUI 包列表'
+grep -Fq 'packages-gui-common.aarch64' "${REPO_ROOT}/scripts/prepare-rootfs.sh" || \
+  fail 'prepare-rootfs 未加载共享 GUI 包列表'
+grep -Fq 'packages-${LIVE_DESKTOP}.aarch64' \
+  "${REPO_ROOT}/scripts/prepare-rootfs.sh" || \
+  fail 'prepare-rootfs 未按桌面 flavor 加载包列表'
 grep -Fq 'sddm.service' "${REPO_ROOT}/scripts/prepare-rootfs.sh" || \
-  fail 'GUI flavor 未启用 sddm'
+  fail 'KDE flavor 未启用 sddm'
+grep -Fq 'gdm.service' "${REPO_ROOT}/scripts/prepare-rootfs.sh" || \
+  fail 'GNOME flavor 未启用 gdm'
+grep -Fq 'lightdm.service' "${REPO_ROOT}/scripts/prepare-rootfs.sh" || \
+  fail 'XFCE flavor 未启用 lightdm'
+for package in mesa pipewire noto-fonts-cjk; do
+  grep -Fxq "${package}" "${CONFIG_DIR}/packages-gui-common.aarch64" || \
+    fail "共享 GUI 包列表缺少：${package}"
+done
+for package in sddm plasma-desktop; do
+  grep -Fxq "${package}" "${CONFIG_DIR}/packages-kde.aarch64" || \
+    fail "KDE 包列表缺少：${package}"
+done
+for package in gdm gnome-shell gnome-session; do
+  grep -Fxq "${package}" "${CONFIG_DIR}/packages-gnome.aarch64" || \
+    fail "GNOME 包列表缺少：${package}"
+done
+for package in lightdm lightdm-gtk-greeter xfce4 xorg-server; do
+  grep -Fxq "${package}" "${CONFIG_DIR}/packages-xfce.aarch64" || \
+    fail "XFCE 包列表缺少：${package}"
+done
 grep -Fq 'LIVE_IMAGE_BASENAME' "${REPO_ROOT}/scripts/build-media.sh" || \
   fail '介质文件名未区分 flavor'
 grep -Fq 'devicetree /boot/dtb/qcom/sdm850-huawei-matebook-e-2019.dtb' \
@@ -161,6 +189,11 @@ grep -Fxq 'blacklist ath10k_snoc' \
   fail 'WCN3990 is not protected from premature udev autoload'
 grep -Fq 'blacklist-ath10k-snoc.conf' "${REPO_ROOT}/scripts/prepare-rootfs.sh" || \
   fail 'prepare-rootfs does not install the WCN3990 autoload guard'
+grep -Fq 'planck-bt-address.service' "${REPO_ROOT}/scripts/prepare-rootfs.sh" || \
+  fail 'prepare-rootfs does not install the Bluetooth address workaround'
+grep -Fq 'systemctl enable bluetooth.service planck-bt-address.service' \
+  "${REPO_ROOT}/scripts/prepare-rootfs.sh" || \
+  fail 'Live rootfs does not enable Bluetooth address configuration'
 grep -Fq 'ExecStart=/usr/local/sbin/start-qcom-mss' \
   "${CONFIG_DIR}/qcom-mss.service" || \
   fail 'qcom-mss service does not start the modem remoteproc'
@@ -191,10 +224,13 @@ grep -Fq 'install -m 0644 "${wlanmdsp_source}" "${wlanmdsp_target}"' \
 grep -Fq 'ath10k/WCN3990/hw1.0/board-2.bin' \
   "${REPO_ROOT}/scripts/install-qualcomm-wifi-services.sh" || \
   fail 'Qualcomm Wi-Fi installer does not verify board-2.bin'
-for wifi_package in iw rfkill networkmanager wpa_supplicant; do
+for wifi_package in bluez bluez-utils iw rfkill networkmanager wpa_supplicant; do
   grep -Fxq "${wifi_package}" "${CONFIG_DIR}/packages.aarch64" || \
     fail "Live rootfs 缺少 Wi-Fi 软件包：${wifi_package}"
 done
+grep -Fxq 'ExecStart=/usr/local/sbin/set-planck-bt-address' \
+  "${CONFIG_DIR}/planck-bt-address.service" || \
+  fail 'Bluetooth address service has an unexpected ExecStart'
 for jsn in adspr.jsn adspua.jsn cdspr.jsn modemuw.jsn slpir.jsn slpius.jsn; do
   [[ -s "${REPO_ROOT}/vendor-firmware/qcom/sdm850/HUAWEI/AL09/${jsn}" ]] || \
     fail "missing Qualcomm PD map: ${jsn}"

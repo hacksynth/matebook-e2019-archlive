@@ -23,15 +23,34 @@ die() {
   exit 1
 }
 
-# Live 介质 flavor：minimal（文本控制台）或 gui（KDE Plasma 桌面）。
+# Live 介质 flavor：minimal、kde、gnome 或 xfce。gui 是 KDE 的历史兼容别名。
 LIVE_FLAVOR="${LIVE_FLAVOR:-minimal}"
 case "${LIVE_FLAVOR}" in
-  minimal) LIVE_FLAVOR_SUFFIX="" ;;
-  gui) LIVE_FLAVOR_SUFFIX="-gui" ;;
-  *) die "LIVE_FLAVOR 必须是 minimal 或 gui，当前为：${LIVE_FLAVOR}" ;;
+  minimal)
+    LIVE_DESKTOP="minimal"
+    LIVE_FLAVOR_SUFFIX=""
+    ;;
+  kde)
+    LIVE_DESKTOP="kde"
+    LIVE_FLAVOR_SUFFIX="-kde"
+    ;;
+  gnome)
+    LIVE_DESKTOP="gnome"
+    LIVE_FLAVOR_SUFFIX="-gnome"
+    ;;
+  xfce)
+    LIVE_DESKTOP="xfce"
+    LIVE_FLAVOR_SUFFIX="-xfce"
+    ;;
+  gui)
+    LIVE_DESKTOP="kde"
+    LIVE_FLAVOR_SUFFIX="-gui"
+    log "LIVE_FLAVOR=gui 作为 KDE 兼容别名处理"
+    ;;
+  *) die "LIVE_FLAVOR 必须是 minimal、kde、gnome 或 xfce，当前为：${LIVE_FLAVOR}" ;;
 esac
 LIVE_IMAGE_BASENAME="${IMAGE_BASENAME}${LIVE_FLAVOR_SUFFIX}"
-export LIVE_FLAVOR LIVE_FLAVOR_SUFFIX LIVE_IMAGE_BASENAME
+export LIVE_FLAVOR LIVE_DESKTOP LIVE_FLAVOR_SUFFIX LIVE_IMAGE_BASENAME
 
 require_root() {
   [[ ${EUID} -eq 0 ]] || die "此步骤需要 root（GitHub Actions 中使用 sudo）。"

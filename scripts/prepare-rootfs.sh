@@ -57,6 +57,10 @@ install -D -m 0644 "${CONFIG_DIR}/qcom-wifi.modules-load.conf" \
   "${ROOTFS_DIR}/etc/modules-load.d/qcom-wifi.conf"
 install -D -m 0644 "${CONFIG_DIR}/blacklist-ath10k-snoc.conf" \
   "${ROOTFS_DIR}/etc/modprobe.d/blacklist-ath10k-snoc.conf"
+install -D -m 0755 "${CONFIG_DIR}/set-planck-bt-address" \
+  "${ROOTFS_DIR}/usr/local/sbin/set-planck-bt-address"
+install -D -m 0644 "${CONFIG_DIR}/planck-bt-address.service" \
+  "${ROOTFS_DIR}/usr/lib/systemd/system/planck-bt-address.service"
 install -D -m 0644 "${CONFIG_DIR}/pd-mapper-retry.conf" \
   "${ROOTFS_DIR}/etc/systemd/system/pd-mapper.service.d/retry.conf"
 install -D -m 0755 "${SCRIPT_DIR}/install-qualcomm-wifi-services.sh" \
@@ -71,13 +75,17 @@ install -m 0644 "${CONFIG_DIR}/grub-embedded.cfg" \
 
 mapfile -t packages < <(sed -e 's/[[:space:]]*#.*$//' -e '/^[[:space:]]*$/d' \
   "${CONFIG_DIR}/packages.aarch64")
-if [[ ${LIVE_FLAVOR} == gui ]]; then
-  mapfile -t gui_packages < <(sed -e 's/[[:space:]]*#.*$//' -e '/^[[:space:]]*$/d' \
-    "${CONFIG_DIR}/packages-gui.aarch64")
-  packages+=("${gui_packages[@]}")
+if [[ ${LIVE_DESKTOP} != minimal ]]; then
+  for package_file in packages-gui-common.aarch64 \
+    "packages-${LIVE_DESKTOP}.aarch64"; do
+    mapfile -t desktop_packages < <(sed -e 's/[[:space:]]*#.*$//' \
+      -e '/^[[:space:]]*$/d' "${CONFIG_DIR}/${package_file}")
+    packages+=("${desktop_packages[@]}")
+  done
 fi
 printf '%s\n' "${packages[@]}" >"${ROOTFS_DIR}/root/live-packages"
 printf '%s\n' "${LIVE_FLAVOR}" >"${ROOTFS_DIR}/root/live-flavor"
+printf '%s\n' "${LIVE_DESKTOP}" >"${ROOTFS_DIR}/root/live-desktop"
 
 cat >"${ROOTFS_DIR}/root/configure-live.sh" <<'CHROOT_SCRIPT'
 #!/usr/bin/env bash
@@ -85,6 +93,7 @@ set -Eeuo pipefail
 
 kernel_release="$(</root/kernel-release)"
 live_flavor="$(</root/live-flavor)"
+live_desktop="$(</root/live-desktop)"
 mapfile -t packages </root/live-packages
 
 # pacman 7 的下载沙箱依赖 Landlock（qemu-user chroot 不支持），且会切换到 alpm 用户。
@@ -134,20 +143,47 @@ printf '%%wheel ALL=(ALL:ALL) NOPASSWD: ALL\n' >/etc/sudoers.d/10-live
 chmod 0440 /etc/sudoers.d/10-live
 
 systemctl enable NetworkManager.service
+systemctl enable bluetooth.service planck-bt-address.service
 systemctl disable sshd.service >/dev/null 2>&1 || true
-if [[ ${live_flavor} == gui ]]; then
-  systemctl enable sddm.service
-  systemctl set-default graphical.target
-  install -d -m 0755 /etc/sddm.conf.d
-  cat >/etc/sddm.conf.d/10-live-autologin.conf <<'SDDM'
+case "${live_desktop}" in
+  kde)
+    systemctl enable sddm.service
+    systemctl set-default graphical.target
+    install -d -m 0755 /etc/sddm.conf.d
+    cat >/etc/sddm.conf.d/10-live-autologin.conf <<'SDDM'
 [Autologin]
 User=live
 Session=plasma
 Relogin=false
 SDDM
-else
-  systemctl set-default multi-user.target
-fi
+    ;;
+  gnome)
+    systemctl enable gdm.service
+    systemctl set-default graphical.target
+    install -d -m 0755 /etc/gdm
+    cat >/etc/gdm/custom.conf <<'GDM'
+[daemon]
+AutomaticLoginEnable=True
+AutomaticLogin=live
+WaylandEnable=true
+GDM
+    ;;
+  xfce)
+    systemctl enable lightdm.service
+    systemctl set-default graphical.target
+    install -d -m 0755 /etc/lightdm/lightdm.conf.d
+    cat >/etc/lightdm/lightdm.conf.d/10-live-autologin.conf <<'LIGHTDM'
+[Seat:*]
+autologin-user=live
+autologin-user-timeout=0
+user-session=xfce
+greeter-session=lightdm-gtk-greeter
+LIGHTDM
+    ;;
+  minimal)
+    systemctl set-default multi-user.target
+    ;;
+esac
 
 # 在原生 AArch64 用户空间内生成 AA64 EFI，避免宿主架构 GRUB 工具混入。
 command -v grub-mkstandalone >/dev/null 2>&1
@@ -162,9 +198,17 @@ PAK-AL09 Arch Linux ARM Live（实验性）
 设备专用固件注入状态见介质根目录的 BUILD-INFO。
 Wi-Fi：运行 `nmtui`，或使用 `nmcli device wifi list`。
 MOTD
-if [[ ${live_flavor} == gui ]]; then
-  printf '桌面：KDE Plasma（sddm 自动登录用户 live；使用右下角网络面板连接 Wi-Fi）\n' >>/etc/motd
-fi
+case "${live_desktop}" in
+  kde)
+    printf '桌面：KDE Plasma（sddm 自动登录用户 live；使用右下角网络面板连接 Wi-Fi）\n' >>/etc/motd
+    ;;
+  gnome)
+    printf '桌面：GNOME（gdm 自动登录用户 live；使用右上角系统菜单连接 Wi-Fi）\n' >>/etc/motd
+    ;;
+  xfce)
+    printf '桌面：XFCE（lightdm 自动登录用户 live；使用网络管理器面板连接 Wi-Fi）\n' >>/etc/motd
+    ;;
+esac
 depmod -a "${kernel_release}"
 modinfo -k "${kernel_release}" ath10k_snoc | grep -Fq 'qcom,wcn3990-wifi'
 modprobe -S "${kernel_release}" --dry-run ath10k_snoc
@@ -241,6 +285,7 @@ install -m 0644 "${ROOTFS_DIR}/root/packages.txt" "${LIVE_DIR}/packages.txt"
 
 rm -f -- "${ROOTFS_DIR}/usr/bin/qemu-aarch64-static" \
   "${ROOTFS_DIR}/root/configure-live.sh" "${ROOTFS_DIR}/root/live-packages" "${ROOTFS_DIR}/root/live-flavor" \
+  "${ROOTFS_DIR}/root/live-desktop" \
   "${ROOTFS_DIR}/root/kernel-release" "${ROOTFS_DIR}/root/grub-embedded.cfg" \
   "${ROOTFS_DIR}/root/packages.txt"
 rm -rf -- "${ROOTFS_DIR:?}/boot/"*

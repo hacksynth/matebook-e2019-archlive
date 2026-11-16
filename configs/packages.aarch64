@@ -2,6 +2,8 @@
 archlinuxarm-keyring
 base
 bash-completion
+bluez
+bluez-utils
 ca-certificates
 curl
 device-mapper

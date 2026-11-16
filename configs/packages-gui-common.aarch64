@@ -1,0 +1,15 @@
+# Shared runtime for KDE, GNOME and XFCE Live flavors.
+
+# Graphics and media (Adreno uses Mesa freedreno).
+mesa
+vulkan-freedreno
+pipewire
+pipewire-pulse
+pipewire-alsa
+wireplumber
+
+# Portals, fonts and audio routing.
+xdg-desktop-portal
+noto-fonts
+noto-fonts-cjk
+alsa-ucm-conf
