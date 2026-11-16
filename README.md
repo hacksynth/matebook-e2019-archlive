@@ -37,7 +37,7 @@ vendor-firmware/         PAK-AL09 专有 Qualcomm 固件及相关设备数据
 
 `configs/grub.cfg` 提供三个启动项：默认启动、禁用 QSEECom 排错，以及添加 `efi=novamap` 的 UEFI 排错。三个启动项都使用 dracut 的 `rd.live.ram=1`，在启动阶段把 SquashFS 根文件系统复制到 RAM；等待进入 Live 系统后即可拔掉 U 盘。该方式会额外占用约一份 SquashFS 大小的内存，目标设备的 8 GiB 内存应能满足要求，但启动会比直接从 U 盘读取更慢。当前上游内核配置不含 6.16 的 Planck EC/UCSI/QSEECom 板级补丁，因此电池状态、EC 背光、合盖、Fn 键和部分 USB-C 角色切换功能可能不可用。
 
-WCN3990 Wi-Fi 已在 PAK-AL09 的持久 UFS 安装会话中验证可创建 `wlan0` 并扫描热点。该链路需要固定版本构建的 `pd-mapper`、`tqftpserv`、`rmtfs`，启动 `qrtr_smd`，再把 mss remoteproc 启动到 WCN3990 的 WLFW QMI 服务。`configs/qcom-mss.service`、`configs/start-qcom-mss` 和 `configs/qcom-wifi.modules-load.conf` 用于持久化该启动顺序。固件路径仍需把 `ath10k/WCN3990/hw1.0/wlanmdsp.mbn` 映射到 `qcom/sdm850/HUAWEI/AL09/wlanmdsp.mbn`；Windows `bdwlan.*` 不能直接替代 Linux `board-2.bin`。
+WCN3990 Wi-Fi 已在 PAK-AL09 的持久 UFS 安装会话中验证可创建 `wlan0` 并扫描热点。Live 镜像使用相同链路：先禁止 udev 按设备别名过早加载驱动，再启动 `rmtfs`、`pd-mapper`、`tqftpserv` 和 MSS remoteproc，随后显式加载 `ath10k_snoc`，等待 `wlan0` 出现后才启动 NetworkManager。安装脚本优先使用 `linux-firmware-atheros` 的 WCN3990 `wlanmdsp.mbn`，仅在缺失时回退到设备目录中的 Windows 文件。发行版 `board-2.bin` 已包含 `Huawei_Planck` 校准项；Windows `bdwlan.*` 不能直接替代它。Live 中包含 `nmcli`/`nmtui`、`iw`、`rfkill`，GUI flavor 还包含 Plasma NetworkManager 面板。
 
 持久安装的 initramfs 必须在根分区切换前找到 ADSP/CDSP/SLPI 固件；`configs/dracut-qcom-firmware.conf` 列出了需要携带的设备固件。当前 RTC 驱动不能写回硬件时钟，系统时间应在联网后由 NTP 客户端校正。
 

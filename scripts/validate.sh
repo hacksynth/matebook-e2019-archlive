@@ -141,17 +141,31 @@ done
 grep -Fxq 'ExecStart=/usr/bin/modprobe ath10k_snoc' \
   "${CONFIG_DIR}/ath10k-wcn3990.service" || \
   fail 'WCN3990 service does not load ath10k_snoc'
-grep -Fq 'After=pd-mapper.service tqftpserv.service' \
+grep -Fxq 'Requires=qcom-mss.service' \
   "${CONFIG_DIR}/ath10k-wcn3990.service" || \
-  fail 'WCN3990 service does not wait for firmware services'
+  fail 'WCN3990 service does not require the MSS remoteproc'
+grep -Fq 'After=qcom-mss.service pd-mapper.service tqftpserv.service' \
+  "${CONFIG_DIR}/ath10k-wcn3990.service" || \
+  fail 'WCN3990 service does not wait for MSS and firmware services'
 grep -Fq 'systemctl is-active --quiet pd-mapper.service' \
   "${CONFIG_DIR}/ath10k-wcn3990.service" || \
   fail 'WCN3990 service does not wait for active pd-mapper'
+grep -Fq '[[ -d /sys/class/net/wlan0 ]]' \
+  "${CONFIG_DIR}/ath10k-wcn3990.service" || \
+  fail 'WCN3990 service does not verify that wlan0 was created'
 grep -Fxq 'qrtr_smd' "${CONFIG_DIR}/qcom-wifi.modules-load.conf" || \
   fail 'Qualcomm modules-load config does not load qrtr_smd'
+grep -Fxq 'blacklist ath10k_snoc' \
+  "${CONFIG_DIR}/blacklist-ath10k-snoc.conf" || \
+  fail 'WCN3990 is not protected from premature udev autoload'
+grep -Fq 'blacklist-ath10k-snoc.conf' "${REPO_ROOT}/scripts/prepare-rootfs.sh" || \
+  fail 'prepare-rootfs does not install the WCN3990 autoload guard'
 grep -Fq 'ExecStart=/usr/local/sbin/start-qcom-mss' \
   "${CONFIG_DIR}/qcom-mss.service" || \
   fail 'qcom-mss service does not start the modem remoteproc'
+grep -Fq 'Before=ath10k-wcn3990.service NetworkManager.service' \
+  "${CONFIG_DIR}/qcom-mss.service" || \
+  fail 'MSS starts after the WLAN driver or NetworkManager'
 grep -Fq 'echo start >"${rproc}/state"' "${CONFIG_DIR}/start-qcom-mss" || \
   fail 'qcom-mss helper does not start the remoteproc'
 grep -Fq 'install-qualcomm-wifi-services.sh' \
@@ -170,6 +184,16 @@ grep -Fq 'rmtfs-git' "${REPO_ROOT}/scripts/install-qualcomm-wifi-services.sh" ||
 grep -Fq 'wlanmdsp.mbn' \
   "${REPO_ROOT}/scripts/install-qualcomm-wifi-services.sh" || \
   fail 'Qualcomm Wi-Fi installer does not map WCN3990 firmware'
+grep -Fq 'install -m 0644 "${wlanmdsp_source}" "${wlanmdsp_target}"' \
+  "${REPO_ROOT}/scripts/install-qualcomm-wifi-services.sh" || \
+  fail 'Qualcomm Wi-Fi installer does not copy a usable wlanmdsp'
+grep -Fq 'ath10k/WCN3990/hw1.0/board-2.bin' \
+  "${REPO_ROOT}/scripts/install-qualcomm-wifi-services.sh" || \
+  fail 'Qualcomm Wi-Fi installer does not verify board-2.bin'
+for wifi_package in iw rfkill networkmanager wpa_supplicant; do
+  grep -Fxq "${wifi_package}" "${CONFIG_DIR}/packages.aarch64" || \
+    fail "Live rootfs 缺少 Wi-Fi 软件包：${wifi_package}"
+done
 for jsn in adspr.jsn adspua.jsn cdspr.jsn modemuw.jsn slpir.jsn slpius.jsn; do
   [[ -s "${REPO_ROOT}/vendor-firmware/qcom/sdm850/HUAWEI/AL09/${jsn}" ]] || \
     fail "missing Qualcomm PD map: ${jsn}"

@@ -57,8 +57,31 @@ make -C "${work_dir}/pd-mapper" prefix=/usr install
 ldconfig
 
 install -d -m 0755 /usr/lib/firmware/qcom/sdm850/HUAWEI/AL09
-ln -sfn /usr/lib/firmware/ath10k/WCN3990/hw1.0/wlanmdsp.mbn \
-  /usr/lib/firmware/qcom/sdm850/HUAWEI/AL09/wlanmdsp.mbn
+wlanmdsp_target=/usr/lib/firmware/qcom/sdm850/HUAWEI/AL09/wlanmdsp.mbn
+if [[ ! -s ${wlanmdsp_target} ]]; then
+  wlanmdsp_source=""
+  for candidate in \
+    /usr/lib/firmware/ath10k/WCN3990/hw1.0/wlanmdsp.mbn \
+    /usr/lib/firmware/windows-wcn3990/wlanmdsp.mbn; do
+    if [[ -s ${candidate} ]]; then
+      wlanmdsp_source="${candidate}"
+      break
+    fi
+  done
+  [[ -n ${wlanmdsp_source} ]] || {
+    echo "missing WCN3990 wlanmdsp.mbn firmware" >&2
+    exit 1
+  }
+  install -m 0644 "${wlanmdsp_source}" "${wlanmdsp_target}"
+fi
+[[ -s ${wlanmdsp_target} ]] || {
+  echo "WCN3990 firmware mapping is empty: ${wlanmdsp_target}" >&2
+  exit 1
+}
+[[ -s /usr/lib/firmware/ath10k/WCN3990/hw1.0/board-2.bin ]] || {
+  echo "missing WCN3990 Linux board-2.bin" >&2
+  exit 1
+}
 
 for binary in /usr/bin/tqftpserv /usr/bin/pd-mapper /usr/bin/qrtr-lookup; do
   [[ -x ${binary} ]] || {

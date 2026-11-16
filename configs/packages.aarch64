@@ -10,6 +10,7 @@ e2fsprogs
 exfatprogs
 grub
 iproute2
+iw
 iwd
 less
 # 只装此设备相关固件拆分包，避免把 AMD/NVIDIA/Intel 固件塞进 Live 镜像。
@@ -17,6 +18,7 @@ linux-firmware-atheros
 linux-firmware-qcom
 networkmanager
 openssh
+rfkill
 sudo
 usbutils
 vim

@@ -1,15 +1,16 @@
 [Unit]
 Description=Load Qualcomm WCN3990 WLAN driver
-Wants=pd-mapper.service tqftpserv.service
-After=pd-mapper.service tqftpserv.service network-pre.target
+Requires=qcom-mss.service
+After=qcom-mss.service pd-mapper.service tqftpserv.service network-pre.target
 Before=NetworkManager.service
 ConditionPathExists=/sys/bus/platform/devices/18800000.wifi
 
 [Service]
 Type=oneshot
-TimeoutStartSec=90s
+TimeoutStartSec=150s
 ExecStartPre=/usr/bin/bash -c 'for i in {1..60}; do systemctl is-active --quiet pd-mapper.service && exit 0; sleep 1; done; exit 1'
 ExecStart=/usr/bin/modprobe ath10k_snoc
+ExecStartPost=/usr/bin/bash -c 'for i in {1..60}; do [[ -d /sys/class/net/wlan0 ]] && exit 0; sleep 1; done; echo "WCN3990 did not create wlan0" >&2; exit 1'
 RemainAfterExit=yes
 
 [Install]

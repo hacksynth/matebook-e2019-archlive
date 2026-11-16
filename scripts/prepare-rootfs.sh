@@ -55,6 +55,8 @@ install -D -m 0755 "${CONFIG_DIR}/start-qcom-mss" \
   "${ROOTFS_DIR}/usr/local/sbin/start-qcom-mss"
 install -D -m 0644 "${CONFIG_DIR}/qcom-wifi.modules-load.conf" \
   "${ROOTFS_DIR}/etc/modules-load.d/qcom-wifi.conf"
+install -D -m 0644 "${CONFIG_DIR}/blacklist-ath10k-snoc.conf" \
+  "${ROOTFS_DIR}/etc/modprobe.d/blacklist-ath10k-snoc.conf"
 install -D -m 0644 "${CONFIG_DIR}/pd-mapper-retry.conf" \
   "${ROOTFS_DIR}/etc/systemd/system/pd-mapper.service.d/retry.conf"
 install -D -m 0755 "${SCRIPT_DIR}/install-qualcomm-wifi-services.sh" \
@@ -157,10 +159,11 @@ grub-mkstandalone --format=arm64-efi --output=/boot/BOOTAA64.EFI \
 cat >/etc/motd <<'MOTD'
 PAK-AL09 Arch Linux ARM Live（实验性）
 用户/密码：live/live；sudo 无密码。默认不会安装系统或写入内部 UFS。
-专有固件未随项目提供；请先阅读介质根目录的 README/BUILD-INFO。
+设备专用固件注入状态见介质根目录的 BUILD-INFO。
+Wi-Fi：运行 `nmtui`，或使用 `nmcli device wifi list`。
 MOTD
 if [[ ${live_flavor} == gui ]]; then
-  printf '桌面：KDE Plasma（sddm 自动登录用户 live）\n' >>/etc/motd
+  printf '桌面：KDE Plasma（sddm 自动登录用户 live；使用右下角网络面板连接 Wi-Fi）\n' >>/etc/motd
 fi
 depmod -a "${kernel_release}"
 modinfo -k "${kernel_release}" ath10k_snoc | grep -Fq 'qcom,wcn3990-wifi'

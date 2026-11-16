@@ -1,7 +1,8 @@
 [Unit]
 Description=Start Qualcomm MSS for WCN3990 WLAN
-Wants=rmtfs.service pd-mapper.service tqftpserv.service ath10k-wcn3990.service
-After=rmtfs.service pd-mapper.service tqftpserv.service ath10k-wcn3990.service
+Wants=rmtfs.service pd-mapper.service tqftpserv.service
+After=rmtfs.service pd-mapper.service tqftpserv.service systemd-modules-load.service
+Before=ath10k-wcn3990.service NetworkManager.service
 ConditionPathExists=/sys/class/remoteproc
 
 [Service]
