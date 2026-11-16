@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 # shellcheck source-path=SCRIPTDIR
+# shellcheck disable=SC2016 # Static assertions intentionally match literal ${...}.
 set -Eeuo pipefail
 
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
