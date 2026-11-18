@@ -16,11 +16,16 @@ concurrency:
 
 jobs:
   build:
+    name: Build PAK-AL09 (${{ matrix.kernel_variant }})
     runs-on: ubuntu-24.04
     timeout-minutes: 360
     # 只有本 job 需要写 Release（tag 发布 / main 的 latest 预发布）。
     permissions:
       contents: write
+    strategy:
+      fail-fast: false
+      matrix:
+        kernel_variant: [stock, planck]
     steps:
       - name: Checkout
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
@@ -52,30 +57,32 @@ jobs:
         uses: actions/cache/restore@5a3ec84eff668545956fd18022155c47e93e2684 # v4.2.3
         with:
           path: .cache/kernel-cache
-          key: kernel-${{ hashFiles('configs/versions.env', 'configs/device.env', 'configs/kernel.fragment', 'scripts/build-kernel.sh', 'scripts/fetch-sources.sh') }}
+          key: kernel-${{ matrix.kernel_variant }}-${{ hashFiles('configs/versions.env', 'configs/device.env', 'configs/kernel.fragment', 'configs/kernel.planck.fragment', 'analysis/bios-1.16/patches/*.patch', 'scripts/build-kernel.sh', 'scripts/fetch-sources.sh') }}
 
       - name: Build kernel
         env:
           CLEAN_INTERMEDIATES: '1'
+          KERNEL_VARIANT: ${{ matrix.kernel_variant }}
           STAGE: kernel
-        run: sudo --preserve-env=GITHUB_ACTIONS,CLEAN_INTERMEDIATES,STAGE bash scripts/build.sh
+        run: sudo --preserve-env=GITHUB_ACTIONS,CLEAN_INTERMEDIATES,KERNEL_VARIANT,STAGE bash scripts/build.sh
 
       - name: Save kernel build cache
         if: steps.kernel-cache.outputs.cache-hit != 'true'
         uses: actions/cache/save@5a3ec84eff668545956fd18022155c47e93e2684 # v4.2.3
         with:
           path: .cache/kernel-cache
-          key: kernel-${{ hashFiles('configs/versions.env', 'configs/device.env', 'configs/kernel.fragment', 'scripts/build-kernel.sh', 'scripts/fetch-sources.sh') }}
+          key: kernel-${{ matrix.kernel_variant }}-${{ hashFiles('configs/versions.env', 'configs/device.env', 'configs/kernel.fragment', 'configs/kernel.planck.fragment', 'analysis/bios-1.16/patches/*.patch', 'scripts/build-kernel.sh', 'scripts/fetch-sources.sh') }}
 
       - name: Build rootfs and media (minimal + kde + gnome + xfce)
         env:
           CLEAN_INTERMEDIATES: '1'
+          KERNEL_VARIANT: ${{ matrix.kernel_variant }}
           STAGE: media
         run: |
           set -Eeuo pipefail
           for flavor in minimal kde gnome xfce; do
             echo "=== building Live flavor: ${flavor} ==="
-            sudo --preserve-env=GITHUB_ACTIONS,CLEAN_INTERMEDIATES,STAGE \
+            sudo --preserve-env=GITHUB_ACTIONS,CLEAN_INTERMEDIATES,KERNEL_VARIANT,STAGE \
               env LIVE_FLAVOR="${flavor}" bash scripts/build.sh
           done
 
@@ -84,7 +91,9 @@ jobs:
         run: df -h /
 
       - name: Verify release checksums
-        run: (cd out && sha256sum --check SHA256SUMS)
+        env:
+          KERNEL_VARIANT: ${{ matrix.kernel_variant }}
+        run: (cd out && sha256sum --check "SHA256SUMS-${KERNEL_VARIANT}")
 
       # 不再使用 actions/upload-artifact（它总会生成 zip）。直接把 out/ 下每个
       # 产物作为独立 Release asset 上传；tag 构建发布正式版，main 构建更新 latest
@@ -93,28 +102,32 @@ jobs:
         if: github.event_name != 'pull_request'
         env:
           GH_TOKEN: ${{ github.token }}
+          KERNEL_VARIANT: ${{ matrix.kernel_variant }}
         run: |
           set -Eeuo pipefail
           cd out
           if [[ "${GITHUB_REF_TYPE}" == "tag" ]]; then
             tag="${GITHUB_REF_NAME}"
             title="PAK-AL09 Arch Linux ARM Live ${tag}"
-            notes="Tag build ${GITHUB_SHA}."
+            notes="Tag build ${GITHUB_SHA} with stock and planck kernel variants."
             prerelease=()
           else
             tag="latest"
             title="PAK-AL09 Arch Linux ARM Live (latest main build)"
-            notes="Rolling build from main at ${GITHUB_SHA}."
+            notes="Rolling build from main at ${GITHUB_SHA} with stock and planck kernel variants."
             prerelease=(--prerelease)
           fi
 
-          if ! gh release view "${tag}" >/dev/null 2>&1; then
+          ensure_release() {
+            gh release view "${tag}" >/dev/null 2>&1 && return 0
             if [[ "${GITHUB_REF_TYPE}" == "tag" ]]; then
               gh release create "${tag}" --verify-tag --title "${title}" --notes "${notes}"
             else
               gh release create "${tag}" --target "${GITHUB_SHA}" \
                 --title "${title}" --notes "${notes}" "${prerelease[@]}"
             fi
-          fi
+          }
+          # 两个 matrix job 会并发发布同一 Release；另一个 job 已创建时视为成功。
+          ensure_release || gh release view "${tag}" >/dev/null
           # 逐个文件上传（含 SHA256SUMS），已存在则覆盖。
           gh release upload "${tag}" ./* --clobber

@@ -61,10 +61,19 @@ grep -Fq 'fetch --quiet --depth=1 origin' \
   "${REPO_ROOT}/scripts/fetch-sources.sh" || fail 'fetch-sources 未按 tag 抓取并校验内核'
 grep -Fq '内核提交不匹配' "${REPO_ROOT}/scripts/fetch-sources.sh" || \
   fail 'fetch-sources 未校验锁定内核提交'
+grep -Fq 'KERNEL_VARIANT' "${REPO_ROOT}/scripts/lib/common.sh" || \
+  fail 'common.sh 未实现 stock/planck 内核变体'
+grep -Fq 'analysis/bios-1.16/patches' "${REPO_ROOT}/scripts/build-kernel.sh" || \
+  fail 'build-kernel 未引用 Planck 补丁目录'
+grep -Fq 'apply_patch_once' "${REPO_ROOT}/scripts/build-kernel.sh" || \
+  fail 'build-kernel 未应用 Planck 补丁'
+grep -Fq 'kernel.planck.fragment' "${REPO_ROOT}/scripts/build-kernel.sh" || \
+  fail 'build-kernel 未合并 Planck 内核配置'
 
 expected_files=(
   README.md LICENSE .gitignore
-  configs/versions.env configs/device.env configs/kernel.fragment configs/dracut.conf
+  configs/versions.env configs/device.env configs/kernel.fragment
+  configs/kernel.planck.fragment configs/dracut.conf
   configs/packages-gui-common.aarch64 configs/packages-kde.aarch64
   configs/packages-gnome.aarch64 configs/packages-xfce.aarch64
   configs/grub.cfg configs/grub-embedded.cfg configs/packages.aarch64
@@ -99,6 +108,10 @@ grep -Fq 'tag="latest"' "${REPO_ROOT}/.github/workflows/build.yml" || \
 grep -Fq 'for flavor in minimal kde gnome xfce' \
   "${REPO_ROOT}/.github/workflows/build.yml" || \
   fail 'workflow 未同时构建 minimal、kde、gnome 与 xfce flavor'
+grep -Fq 'kernel_variant: [stock, planck]' "${REPO_ROOT}/.github/workflows/build.yml" || \
+  fail 'workflow 未同时构建 stock 与 planck 内核'
+grep -Fq 'matrix.kernel_variant' "${REPO_ROOT}/.github/workflows/build.yml" || \
+  fail 'workflow 未把内核变体传入构建和缓存键'
 grep -Fq 'LIVE_FLAVOR=' "${REPO_ROOT}/.github/workflows/build.yml" || \
   fail 'workflow 未传递 LIVE_FLAVOR'
 grep -Fq 'packages-gui-common.aarch64' "${REPO_ROOT}/scripts/prepare-rootfs.sh" || \
@@ -248,8 +261,13 @@ grep -Fq 'INSTALL_MOD_STRIP=1' "${REPO_ROOT}/scripts/build-kernel.sh" || \
 grep -Fq 'linux-firmware-qcom' "${CONFIG_DIR}/packages.aarch64" || \
   fail 'Live rootfs 缺少 linux-firmware-qcom'
 if grep -Fq 'EC_HUAWEI_PLANCK' "${CONFIG_DIR}/kernel.fragment"; then
-  fail 'stable 7.3.5 profile 不应再断言已移除的 6.16 Planck EC 驱动'
+  fail '基础 kernel.fragment 不应启用 Planck EC 驱动'
 fi
+for setting in CONFIG_EC_HUAWEI_PLANCK=m CONFIG_BATTERY_HUAWEI_PLANCK=m \
+  CONFIG_UCSI_HUAWEI_PLANCK=m CONFIG_AUXILIARY_BUS=y; do
+  grep -Fxq "${setting}" "${CONFIG_DIR}/kernel.planck.fragment" || \
+    fail "Planck fragment 缺少配置：${setting}"
+done
 if grep -En 'zstd[^|]*--output' "${REPO_ROOT}/scripts/build.sh" \
     "${REPO_ROOT}/scripts/build-media.sh" >/dev/null 2>&1; then
   fail 'zstd 不支持 --output 长选项，必须使用 -o'
@@ -264,6 +282,8 @@ grep -Fq "\"\${CONFIG_DIR}/device.env\"" "${REPO_ROOT}/scripts/build-kernel.sh" 
   fail '内核缓存键未包含设备配置'
 grep -Fq "configs/device.env" "${build_workflow}" || \
   fail 'build workflow 内核缓存键未包含设备配置'
+grep -Fq "analysis/bios-1.16/patches/*.patch" "${build_workflow}" || \
+  fail 'build workflow 内核缓存键未包含 Planck 补丁'
 grep -Fq 'actions/cache/restore@5a3ec84eff668545956fd18022155c47e93e2684' "${build_workflow}" || \
   fail 'build workflow 未固定 actions/cache/restore SHA'
 grep -Fq 'actions/cache/save@5a3ec84eff668545956fd18022155c47e93e2684' "${build_workflow}" || \
@@ -299,14 +319,18 @@ grep -Fq 'LINUX_SOURCE_ARCHIVE=' "${CONFIG_DIR}/versions.env" || fail '缺少 GP
 grep -Fq 'bsdtar -cf -' "${REPO_ROOT}/scripts/build.sh" || fail '未生成完整已补丁内核源码归档'
 grep -Fq "linux/arch/arm64/boot/dts/\${device_dts}" \
   "${REPO_ROOT}/scripts/build.sh" || fail '源码归档未检查目标设备树'
-if grep -Fq 'huawei-planck-ec.c' "${REPO_ROOT}/scripts/build.sh"; then
-  fail 'stable 7.3.5 构建不应再检查已移除的 Planck EC 源码'
-fi
+mapfile -t planck_patches < <(find "${REPO_ROOT}/analysis/bios-1.16/patches" \
+  -maxdepth 1 -type f -name '000[1-4]-*.patch' -print | LC_ALL=C sort)
+[[ ${#planck_patches[@]} -eq 4 ]] || fail 'Planck 补丁系列不完整'
+grep -Fq 'KERNEL_SOURCE_ARCHIVE' "${REPO_ROOT}/scripts/lib/common.sh" || \
+  fail '源码归档未区分 stock/planck 内核变体'
+grep -Fq 'SHA256SUMS${KERNEL_VARIANT_SUFFIX}' "${REPO_ROOT}/scripts/build.sh" || \
+  fail '校验和文件未区分 stock/planck 内核变体'
 grep -Fq 'DEVICE_MODEL="PAK-AL09"' "${CONFIG_DIR}/device.env" || \
   fail '设备配置不是当前 PAK-AL09 基线'
 grep -Fq 'DEVICE_DTB="qcom/sdm850-huawei-matebook-e-2019.dtb"' \
   "${CONFIG_DIR}/device.env" || fail '设备配置未指向 PAK-AL09 上游设备树'
-grep -Fq 'DEVICE-PROFILE.env' "${REPO_ROOT}/scripts/build.sh" || \
+grep -Fq 'DEVICE-PROFILE${KERNEL_VARIANT_SUFFIX}.env' "${REPO_ROOT}/scripts/build.sh" || \
   fail '构建产物未包含设备配置'
 grep -Fq "export VENDOR_FIRMWARE_DIR=\"\${REPO_ROOT}/vendor-firmware\"" \
   "${REPO_ROOT}/scripts/build.sh" || fail '构建未自动使用私有仓库固件目录'

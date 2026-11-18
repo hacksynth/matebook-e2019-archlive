@@ -2,21 +2,28 @@
 
 > **实验性、非官方项目，可能无法启动。** 目标设备为 Snapdragon 850 / AArch64 的 HUAWEI MateBook E 2019（PAK-AL09）。显示、触控、键盘、存储、无线网络及休眠功能都需要在真机上验证；请勿把本项目作为唯一生产系统或恢复手段。
 
-本项目在 Ubuntu x86_64 环境中交叉编译 Linux stable 内核，并基于 Arch Linux ARM Generic AArch64 rootfs 构建可启动的 Live 介质。当前配置使用 Linux stable **v7.3.5** 和上游设备树 `qcom/sdm850-huawei-matebook-e-2019.dtb`。
+本项目在 Ubuntu x86_64 环境中交叉编译 Linux stable 内核，并基于 Arch Linux ARM Generic AArch64 rootfs 构建可启动的 Live 介质。当前配置使用 Linux stable **v7.3.5**，同时生成两个内核变体：
+
+| 内核变体 | 内容 |
+|---|---|
+| `stock` | 纯上游 7.3.5 内核与设备树 |
+| `planck` | 应用 `analysis/bios-1.16/patches/` 中的 EC/电池/UCSI 四补丁，并启用 Planck EC、电池、背光、Lid 与 USB-C UCSI 驱动 |
 
 ## 构建产物
 
-每次构建同时生成四个 flavor（内核只编译一次）：
+每个内核变体都会生成四个桌面 flavor，因此完整 CI 共生成八个组合。文件名格式为
+`matebook-e2019-archlive-7.3.5-<stock|planck>[-<desktop>]`：
 
 | flavor | 产物 | 桌面 |
 |---|---|---|
-| `minimal` | `matebook-e2019-archlive-7.3.5.img.zst` / `.iso` | 文本控制台（multi-user） |
-| `kde` | `matebook-e2019-archlive-7.3.5-kde.img.zst` / `.iso` | KDE Plasma，`sddm` 自动登录 `live` |
-| `gnome` | `matebook-e2019-archlive-7.3.5-gnome.img.zst` / `.iso` | GNOME，`gdm` 自动登录 `live` |
-| `xfce` | `matebook-e2019-archlive-7.3.5-xfce.img.zst` / `.iso` | XFCE，`lightdm` 自动登录 `live` |
+| `minimal` | `...-<variant>.img.zst` / `.iso` | 文本控制台（multi-user） |
+| `kde` | `...-<variant>-kde.img.zst` / `.iso` | KDE Plasma，`sddm` 自动登录 `live` |
+| `gnome` | `...-<variant>-gnome.img.zst` / `.iso` | GNOME，`gdm` 自动登录 `live` |
+| `xfce` | `...-<variant>-xfce.img.zst` / `.iso` | XFCE，`lightdm` 自动登录 `live` |
 
-四种介质都附带 `SHA256SUMS`、`BUILD-INFO*.txt`、`SOURCE-LOCK.env`、`DEVICE-PROFILE.env`、
-`packages*.txt`、`kernel.config`、`linux-source-7.3.5.tar.zst` 与 ISO El Torito 检查报告。
+每个变体附带独立的 `SHA256SUMS-stock` 或 `SHA256SUMS-planck`，以及带变体后缀的
+`BUILD-INFO*.txt`、`SOURCE-LOCK*.env`、`DEVICE-PROFILE*.env`、`packages*.txt`、
+`kernel-*.config`、GPL 源码归档和 ISO El Torito 检查报告。
 
 GUI 共享包位于 `configs/packages-gui-common.aarch64`，桌面专属包分别为
 `packages-kde.aarch64`、`packages-gnome.aarch64` 和 `packages-xfce.aarch64`。三种桌面都使用
@@ -37,9 +44,9 @@ vendor-firmware/         PAK-AL09 专有 Qualcomm 固件及相关设备数据
 
 ## 设备基线与功能范围
 
-`configs/device.env` 记录目标设备硬件基线：PAK-AL09 / 产品版本 M1010、Snapdragon 850、8 GiB 内存、2160 × 1440 显示屏、Goodix GT7380 I2C-HID 触摸屏及 Qualcomm WCN3990。内核配置在 `configs/kernel.fragment`，包括 Live 所需的 SquashFS/OverlayFS、压缩 initramfs、USB/UFS/SD、USB-C QCOM PHY、eDP 显示、触控及 WCN3990 `ath10k_snoc` 支持。
+`configs/device.env` 记录目标设备硬件基线：PAK-AL09 / 产品版本 M1010、Snapdragon 850、8 GiB 内存、2160 × 1440 显示屏、Goodix GT7380 I2C-HID 触摸屏及 Qualcomm WCN3990。共享内核配置在 `configs/kernel.fragment`，包括 Live 所需的 SquashFS/OverlayFS、压缩 initramfs、USB/UFS/SD、USB-C QCOM PHY、eDP 显示、触控及 WCN3990 `ath10k_snoc` 支持；`configs/kernel.planck.fragment` 只增加 Planck EC、电池与 UCSI 驱动。
 
-`configs/grub.cfg` 提供三个启动项：默认启动、禁用 QSEECom 排错，以及添加 `efi=novamap` 的 UEFI 排错。三个启动项都使用 dracut 的 `rd.live.ram=1`，在启动阶段把 SquashFS 根文件系统复制到 RAM；等待进入 Live 系统后即可拔掉 U 盘。该方式会额外占用约一份 SquashFS 大小的内存，目标设备的 8 GiB 内存应能满足要求，但启动会比直接从 U 盘读取更慢。当前上游内核配置不含 6.16 的 Planck EC/UCSI/QSEECom 板级补丁，因此电池状态、EC 背光、合盖、Fn 键和部分 USB-C 角色切换功能可能不可用。
+`configs/grub.cfg` 提供三个启动项：默认启动、禁用 QSEECom 排错，以及添加 `efi=novamap` 的 UEFI 排错。三个启动项都使用 dracut 的 `rd.live.ram=1`，在启动阶段把 SquashFS 根文件系统复制到 RAM；等待进入 Live 系统后即可拔掉 U 盘。该方式会额外占用约一份 SquashFS 大小的内存，目标设备的 8 GiB 内存应能满足要求，但启动会比直接从 U 盘读取更慢。`stock` 变体不含 Planck EC/UCSI 板级补丁，电池状态、EC 背光、合盖和部分 USB-C 功能可能不可用；`planck` 变体包含这些驱动，但仍需真机验证。
 
 WCN3990 Wi-Fi 已在 PAK-AL09 的持久 UFS 安装会话中验证可创建 `wlan0` 并扫描热点。Live 镜像使用相同链路：先禁止 udev 按设备别名过早加载驱动，再启动 `rmtfs`、`pd-mapper`、`tqftpserv` 和 MSS remoteproc，随后显式加载 `ath10k_snoc`，等待 `wlan0` 出现后才启动 NetworkManager。安装脚本优先使用 `linux-firmware-atheros` 的 WCN3990 `wlanmdsp.mbn`，仅在缺失时回退到设备目录中的 Windows 文件。发行版 `board-2.bin` 已包含 `Huawei_Planck` 校准项；Windows `bdwlan.*` 不能直接替代它。Live 中包含 `nmcli`/`nmtui`、`iw`、`rfkill`，三种桌面 flavor 都带网络管理面板。
 
@@ -74,7 +81,8 @@ sudo VENDOR_FIRMWARE_DIR=/absolute/path/to/firmware-tree bash scripts/build.sh
 
 ## 本地构建
 
-建议在 Ubuntu 24.04 x86_64、至少 8 GiB 内存的干净环境构建；四个 flavor 加内核源码缓存建议准备约 50 GiB 空间。安装宿主依赖并运行：
+建议在 Ubuntu 24.04 x86_64、至少 8 GiB 内存的干净环境构建；两个内核变体、八个
+flavor 加源码缓存建议准备约 90 GiB 空间。安装宿主依赖并按下面的分阶段流程运行：
 
 ```bash
 sudo apt-get update
@@ -83,28 +91,34 @@ sudo apt-get install --yes --no-install-recommends \
   dirmngr dosfstools e2fsprogs file flex gcc-aarch64-linux-gnu gdisk git gnupg \
   kmod libarchive-tools libelf-dev libssl-dev mtools patch qemu-user-static \
   rsync squashfs-tools xorriso zstd
-sudo CLEAN_INTERMEDIATES=1 bash scripts/build.sh
-(cd out && sha256sum --check SHA256SUMS)
-```
 
-也可以分开运行内核与介质阶段；两个阶段须使用同一工作目录中的构建数据：
-
-```bash
-sudo STAGE=kernel CLEAN_INTERMEDIATES=1 bash scripts/build.sh
-# 四个 flavor 共用内核产物；介质阶段会逐 flavor 清理 rootfs 和未压缩 raw 镜像
-for flavor in minimal kde gnome xfce; do
-  sudo STAGE=media CLEAN_INTERMEDIATES=1 LIVE_FLAVOR="${flavor}" bash scripts/build.sh
+for variant in stock planck; do
+  sudo KERNEL_VARIANT="${variant}" STAGE=kernel CLEAN_INTERMEDIATES=1 \
+    bash scripts/build.sh
 done
+
+# 每个内核变体分别生成四个桌面 flavor，工作目录按变体隔离。
+for variant in stock planck; do
+  for flavor in minimal kde gnome xfce; do
+    sudo KERNEL_VARIANT="${variant}" STAGE=media CLEAN_INTERMEDIATES=1 \
+      LIVE_FLAVOR="${flavor}" bash scripts/build.sh
+  done
+done
+
+(cd out && sha256sum --check SHA256SUMS-stock)
+(cd out && sha256sum --check SHA256SUMS-planck)
 ```
 
-只构建某个桌面时，将 `LIVE_FLAVOR` 设为 `minimal`、`kde`、`gnome` 或 `xfce`。
+只构建某个变体或桌面时，显式设置 `KERNEL_VARIANT=stock|planck` 与
+`LIVE_FLAVOR=minimal|kde|gnome|xfce`。
 
 构建脚本需要 root 执行。不要在不受信任的 fork 上用 sudo 执行。
 
 ## GitHub Actions 与静态检查
 
 - `validate.yml` 运行 `scripts/validate.sh`，检查 Shell 语法、ShellCheck、workflow YAML/actionlint、来源锁、配置、设备树以及预期文件；也可检查已构建 EFI 的 AA64 PE/COFF 架构。
-- `build.yml` 在 Ubuntu runner 上将内核与介质阶段分开，按构建输入哈希缓存内核并校验产物。
+- `build.yml` 使用 `stock` / `planck` 矩阵并行构建两个内核，每个变体都生成四个桌面 flavor。
+  内核缓存键包含变体、配置及 Planck 补丁哈希，并按变体独立缓存。
   **不再使用 `actions/upload-artifact`（它总会打包成 zip）**，而是把 `out/` 下每个产物
   逐个作为独立 Release asset 直接上传：`v*` tag 构建发布对应正式 Release，`main` 构建
   更新滚动预发布 `latest`，PR 构建只校验不上传。
@@ -113,7 +127,8 @@ done
 
 ```bash
 STRICT_TOOLS=1 bash scripts/validate.sh
-AA64_EFI_PATH=.work/boot/BOOTAA64.EFI STRICT_TOOLS=1 bash scripts/validate.sh
+AA64_EFI_PATH=.work/planck/boot/BOOTAA64.EFI KERNEL_VARIANT=planck \
+  STRICT_TOOLS=1 bash scripts/validate.sh
 ```
 
 第二条命令需要已生成的 EFI 文件。静态检查不等同于完整镜像构建或目标设备启动测试。
@@ -123,8 +138,8 @@ AA64_EFI_PATH=.work/boot/BOOTAA64.EFI STRICT_TOOLS=1 bash scripts/validate.sh
 先验证校验和，再确认写入目标是**整个可移动设备**。将 `/dev/sdX` 替换为正确设备；写错目标会破坏数据，绝不能指向内部 UFS/NVMe：
 
 ```bash
-sha256sum --check SHA256SUMS
-zstd -dc matebook-e2019-archlive-7.3.5.img.zst \
+sha256sum --check SHA256SUMS-planck
+zstd -dc matebook-e2019-archlive-7.3.5-planck.img.zst \
   | sudo dd of=/dev/sdX bs=16M status=progress conv=fsync
 sync
 ```

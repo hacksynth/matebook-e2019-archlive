@@ -13,7 +13,24 @@ KERNEL_DIR="${WORK_DIR}/sources/linux"
 BUILD_DIR="${WORK_DIR}/kernel-build"
 STAGE_DIR="${WORK_DIR}/kernel-stage"
 BOOT_DIR="${WORK_DIR}/boot"
+PATCH_DIR="${REPO_ROOT}/analysis/bios-1.16/patches"
 [[ -d ${KERNEL_DIR}/.git ]] || die "内核源码不存在；请先运行 fetch-sources.sh"
+
+kernel_fragments=("${CONFIG_DIR}/kernel.fragment")
+patch_files=()
+case "${KERNEL_VARIANT}" in
+  stock) ;;
+  planck)
+    mapfile -t patch_files < <(find "${PATCH_DIR}" -maxdepth 1 -type f \
+      -name '000[1-4]-*.patch' -print | LC_ALL=C sort)
+    [[ ${#patch_files[@]} -eq 4 ]] || die 'Planck 补丁系列不完整'
+    for patch_file in "${patch_files[@]}"; do
+      log "应用内核补丁：$(basename -- "${patch_file}")"
+      apply_patch_once "${KERNEL_DIR}" "${patch_file}"
+    done
+    kernel_fragments+=("${CONFIG_DIR}/kernel.planck.fragment")
+    ;;
+esac
 
 # 上游设备树必须仍与当前 PAK-AL09 基线一致。这样上游改树后会在耗时编译前失败关闭。
 device_dts_source="${KERNEL_DIR}/arch/arm64/boot/dts/${DEVICE_DTB%.dtb}.dts"
@@ -32,12 +49,14 @@ safe_recreate_dir "${BUILD_DIR}"
 safe_recreate_dir "${STAGE_DIR}"
 safe_recreate_dir "${BOOT_DIR}"
 
-# 内核构建缓存：键包含基线提交、补丁哈希、Kconfig fragment 与构建/取源脚本。
+# 内核构建缓存：键包含变体、基线提交、补丁哈希、Kconfig fragment 与构建/取源脚本。
 # 命中时跳过约 30 分钟的编译；任何会影响产物的输入变化都会改变键。
 kernel_cache_root="${KERNEL_CACHE_DIR:-${CACHE_DIR}/kernel-cache}"
-kernel_cache_key="$(cat "${CONFIG_DIR}/versions.env" "${CONFIG_DIR}/device.env" \
-  "${CONFIG_DIR}/kernel.fragment" "${SCRIPT_DIR}/build-kernel.sh" \
-  "${SCRIPT_DIR}/fetch-sources.sh" | sha256sum | awk '{print $1}')"
+cache_inputs=("${CONFIG_DIR}/versions.env" "${CONFIG_DIR}/device.env"
+  "${kernel_fragments[@]}" "${SCRIPT_DIR}/build-kernel.sh"
+  "${SCRIPT_DIR}/fetch-sources.sh" "${patch_files[@]}")
+kernel_cache_key="$({ printf 'KERNEL_VARIANT=%s\n' "${KERNEL_VARIANT}"
+  sha256sum "${cache_inputs[@]}"; } | sha256sum | awk '{print $1}')"
 kernel_cache_dir="${kernel_cache_root}/${kernel_cache_key}"
 
 restore_cached_kernel() {
@@ -90,7 +109,7 @@ export KBUILD_BUILD_TIMESTAMP="${kbuild_timestamp}"
 log "合并 arm64 defconfig 与 Live/${DEVICE_MODEL} 配置"
 make -C "${KERNEL_DIR}" O="${BUILD_DIR}" defconfig
 "${KERNEL_DIR}/scripts/kconfig/merge_config.sh" -m -O "${BUILD_DIR}" \
-  "${BUILD_DIR}/.config" "${CONFIG_DIR}/kernel.fragment"
+  "${BUILD_DIR}/.config" "${kernel_fragments[@]}"
 make -C "${KERNEL_DIR}" O="${BUILD_DIR}" olddefconfig
 
 required_configs=(
@@ -120,6 +139,17 @@ required_configs=(
 for setting in "${required_configs[@]}"; do
   grep -Fxq "${setting}" "${BUILD_DIR}/.config" || die "内核配置未满足：${setting}"
 done
+if [[ ${KERNEL_VARIANT} == planck ]]; then
+  for setting in \
+    'CONFIG_EC_HUAWEI_PLANCK=m' \
+    'CONFIG_BATTERY_HUAWEI_PLANCK=m' \
+    'CONFIG_UCSI_HUAWEI_PLANCK=m' \
+    'CONFIG_AUXILIARY_BUS=y' \
+    'CONFIG_DRM_AUX_HPD_BRIDGE=m'; do
+    grep -Fxq "${setting}" "${BUILD_DIR}/.config" || \
+      die "Planck 内核配置未满足：${setting}"
+  done
+fi
 
 jobs="${JOBS:-$(nproc)}"
 log "交叉编译 Image、modules 与 DTB（并行度 ${jobs}）"
@@ -138,5 +168,16 @@ install -m 0644 "${BUILD_DIR}/.config" "${BOOT_DIR}/kernel.config"
 [[ -s ${BOOT_DIR}/Image ]] || die "Image 未生成"
 [[ -s ${BOOT_DIR}/dtb/${DEVICE_DTB} ]] || die "${DEVICE_MODEL} DTB 未生成"
 [[ -d ${STAGE_DIR}/lib/modules/${kernel_release} ]] || die "内核模块未安装"
+module_root="${STAGE_DIR}/lib/modules/${kernel_release}"
+if [[ ${KERNEL_VARIANT} == planck ]]; then
+  for module in huawei-planck-ec huawei-planck-battery ucsi_huawei_planck; do
+    find "${module_root}" -type f -name "${module}.ko*" -print -quit | grep -q . || \
+      die "Planck 内核缺少模块：${module}"
+  done
+elif find "${module_root}" -type f \
+    \( -name 'huawei-planck-ec.ko*' -o -name 'huawei-planck-battery.ko*' \
+       -o -name 'ucsi_huawei_planck.ko*' \) -print -quit | grep -q .; then
+  die 'stock 内核意外包含 Planck 模块'
+fi
 store_kernel_cache "${kernel_release}"
-log "内核构建完成：${kernel_release}"
+log "内核构建完成：${kernel_release}（variant=${KERNEL_VARIANT}）"

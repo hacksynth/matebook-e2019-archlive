@@ -5,7 +5,6 @@ set -Eeuo pipefail
 SCRIPT_LIB_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
 REPO_ROOT="$(cd -- "${SCRIPT_LIB_DIR}/../.." && pwd -P)"
 CONFIG_DIR="${REPO_ROOT}/configs"
-WORK_DIR="${WORK_DIR:-${REPO_ROOT}/.work}"
 CACHE_DIR="${CACHE_DIR:-${REPO_ROOT}/.cache}"
 OUT_DIR="${OUT_DIR:-${REPO_ROOT}/out}"
 
@@ -22,6 +21,16 @@ die() {
   log "错误：$*"
   exit 1
 }
+
+# 内核变体：stock 为纯上游内核，planck 额外应用 EC/Battery/UCSI 补丁。
+KERNEL_VARIANT="${KERNEL_VARIANT:-stock}"
+case "${KERNEL_VARIANT}" in
+  stock|planck)
+    KERNEL_VARIANT_SUFFIX="-${KERNEL_VARIANT}"
+    ;;
+  *) die "KERNEL_VARIANT 必须是 stock 或 planck，当前为：${KERNEL_VARIANT}" ;;
+esac
+WORK_DIR="${WORK_DIR:-${REPO_ROOT}/.work/${KERNEL_VARIANT}}"
 
 # Live 介质 flavor：minimal、kde、gnome 或 xfce。gui 是 KDE 的历史兼容别名。
 LIVE_FLAVOR="${LIVE_FLAVOR:-minimal}"
@@ -49,7 +58,9 @@ case "${LIVE_FLAVOR}" in
     ;;
   *) die "LIVE_FLAVOR 必须是 minimal、kde、gnome 或 xfce，当前为：${LIVE_FLAVOR}" ;;
 esac
-LIVE_IMAGE_BASENAME="${IMAGE_BASENAME}${LIVE_FLAVOR_SUFFIX}"
+LIVE_IMAGE_BASENAME="${IMAGE_BASENAME}${KERNEL_VARIANT_SUFFIX}${LIVE_FLAVOR_SUFFIX}"
+KERNEL_SOURCE_ARCHIVE="${LINUX_SOURCE_ARCHIVE%.tar.zst}${KERNEL_VARIANT_SUFFIX}.tar.zst"
+export KERNEL_VARIANT KERNEL_VARIANT_SUFFIX KERNEL_SOURCE_ARCHIVE
 export LIVE_FLAVOR LIVE_DESKTOP LIVE_FLAVOR_SUFFIX LIVE_IMAGE_BASENAME
 
 require_root() {
