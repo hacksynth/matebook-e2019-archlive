@@ -285,13 +285,13 @@ line as level-triggered and active-low. The older DTB shipped with the local
 battery module was missing this property, which explains the earlier
 discrepancy.
 
-Mainline v7.3 and current master still have only `/* ec@0x76 */` near `&i2c7`.
+Mainline v7.3.5 and current master still have only `/* ec@0x76 */` near `&i2c7`.
 A downstream patch now adds the full node, GPIO 40 interrupt, pinctrl,
 USB-C connector and HS/SS graph links:
 
 `patches/0001-arm64-dts-qcom-sdm850-planck-add-ec.patch`.
 
-The patch applies cleanly to the mainline v7.3 board DTS, and the result compiles
+The patch applies cleanly to the mainline v7.3.5 board DTS, and the result compiles
 successfully with `dtc`. The generated interrupt cell decodes as GPIO 40 with
 `IRQ_TYPE_LEVEL_LOW`.
 
@@ -318,10 +318,10 @@ The host protocol is now well-supported by ACPI and the community driver. The
 internal bank mapping, EC slave dispatch routine and all USB-PD handlers are
 still not fully reconstructed, so these results remain static-analysis only.
 
-## Mainline v7.3 Driver Port
+## Mainline v7.3.5 Driver Port
 
 The community EC, battery and UCSI sources have been ported to the mainline
-v7.3 interfaces and split into an ordered patch series under `patches/`:
+v7.3.5 interfaces and split into an ordered patch series under `patches/`:
 
 1. `0001-arm64-dts-qcom-sdm850-planck-add-ec.patch`
 2. `0002-platform-arm64-huawei-planck-ec.patch`
@@ -330,7 +330,7 @@ v7.3 interfaces and split into an ordered patch series under `patches/`:
 
 The port includes fixes beyond copying the community files:
 
-- Updated the v7.3 UCSI `sync_control` callback to pass message-out data.
+- Updated the current UCSI `sync_control` callback to pass message-out data.
 - Replaced the invalid 49-byte SMBus block write with a direct I2C transfer.
 - Fixed EC event-read error propagation and command error handling.
 - Added short-read detection for command responses.
@@ -339,9 +339,9 @@ The port includes fixes beyond copying the community files:
 - Switched to `devm_auxiliary_device_create()`.
 - Added the forward and reverse USB HS/SS graph links.
 
-The patch series applies cleanly to the v7.3 board source. All three drivers
-compile and link as `aarch64` modules. The patched DTS also compiles
-successfully. Hardware probing is still pending.
+The patch series applies cleanly to the Linux 7.3.5 board source. All three
+drivers compile and link as `aarch64` modules with `vermagic=7.3.5-dirty`.
+The patched DTS also compiles successfully. Hardware probing is still pending.
 
 Apply/build details are in `patches/README.md`.
 

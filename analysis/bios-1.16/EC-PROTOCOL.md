@@ -19,7 +19,7 @@ The current community source was cross-checked from
 `New-Wheat/Linux-for-HUAWEI-MateBook-E-2019` at commit
 `499401e36f17b463b633aef1283d2ed82eebbc52`. The saved board source has
 SHA-256 `b03b21888dcf88bc9dc9ae1e6295daada5c5665497e0c397dc067b8d09ebbc85`.
-Mainline v7.3 and current master have the same board DTS
+Mainline v7.3.5 and current master have the same board DTS
 (`117e69c4938340446be4b72b554ffdc7dd34e5f00ae310c60435183aad98328b`).
 
 Relevant AML hashes:
@@ -83,7 +83,7 @@ The latest New-Wheat source has the complete node:
 ```
 
 The local DTB shipped with the existing battery-only module is older and lacks
-the IRQ. Mainline v7.3 still contains only the placeholder:
+the IRQ. Mainline v7.3.5 still contains only the placeholder:
 
 ```text
 &i2c7 {
@@ -91,14 +91,14 @@ the IRQ. Mainline v7.3 still contains only the placeholder:
 };
 ```
 
-A tested patch for mainline v7.3/master is provided at:
+A tested patch for mainline v7.3.5/master is provided at:
 
 ```text
 patches/0001-arm64-dts-qcom-sdm850-planck-add-ec.patch
 ```
 
 It adds the EC node, GPIO 40 level-low IRQ, pinctrl state, USB-C connector and
-the reverse HS/SS graph links. The patch applies cleanly to the mainline v7.3
+the reverse HS/SS graph links. The patch applies cleanly to the mainline v7.3.5
 board DTS and the resulting DTS compiles with `dtc`. The ELF paths in the final
 DTB decode as GPIO 40 with flag `8` (`IRQ_TYPE_LEVEL_LOW`).
 

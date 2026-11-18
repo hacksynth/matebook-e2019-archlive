@@ -1,7 +1,7 @@
-# Huawei MateBook E 2019 Mainline v7.3 Patch Series
+# Huawei MateBook E 2019 Mainline v7.3.5 Patch Series
 
-Base tree: `torvalds/linux` tag `v7.3`, commit
-`c03c1a14507dfaf8b856c2608f9ac216021fc222`.
+Base tree: `linux-stable` tag `v7.3.5`, commit
+`988117cc1bb17338c586a4e21ade88b5397eac33`.
 
 Apply in numerical order:
 
@@ -21,7 +21,7 @@ The series contains:
 | `0003` | Battery/adapter power supplies |
 | `0004` | UCSI and DisplayPort HPD |
 
-All four patches pass `patch --dry-run -p1` against a clean v7.3 archive.
+All four patches pass `patch --dry-run -p1` against a clean v7.3.5 tree.
 The resulting drivers compile as ARM64 modules:
 
 ```text
@@ -30,9 +30,10 @@ drivers/power/supply/huawei-planck-battery.ko
 drivers/usb/typec/ucsi/ucsi_huawei_planck.ko
 ```
 
-The local compile used a modules-only tree, so `modpost` was invoked with
+The local compile used a modules-only v7.3.5 tree, so `modpost` was invoked with
 `KBUILD_MODPOST_WARN=1`: unresolved core-kernel symbols are expected without a
-built `vmlinux`. No C compiler warning was emitted for the three drivers.
+built `vmlinux`. The built modules carry `vermagic=7.3.5-dirty`, and no C
+compiler warning was emitted for the three drivers.
 
 The patched board DTS also compiles with `dtc`; its EC interrupt cells resolve
 to GPIO 40 and `IRQ_TYPE_LEVEL_LOW`.
