@@ -2,7 +2,7 @@
 
 > **实验性、非官方项目，可能无法启动。** 目标设备为 Snapdragon 850 / AArch64 的 HUAWEI MateBook E 2019（PAK-AL09）。显示、触控、键盘、存储、无线网络及休眠功能都需要在真机上验证；请勿把本项目作为唯一生产系统或恢复手段。
 
-本项目在 Ubuntu x86_64 环境中交叉编译 Linux stable 内核，并基于 Arch Linux ARM Generic AArch64 rootfs 构建可启动的 Live 介质。当前配置使用 Linux stable **v7.3.4** 和上游设备树 `qcom/sdm850-huawei-matebook-e-2019.dtb`。
+本项目在 Ubuntu x86_64 环境中交叉编译 Linux stable 内核，并基于 Arch Linux ARM Generic AArch64 rootfs 构建可启动的 Live 介质。当前配置使用 Linux stable **v7.3.5** 和上游设备树 `qcom/sdm850-huawei-matebook-e-2019.dtb`。
 
 ## 构建产物
 
@@ -10,13 +10,13 @@
 
 | flavor | 产物 | 桌面 |
 |---|---|---|
-| `minimal` | `matebook-e2019-archlive-7.3.4.img.zst` / `.iso` | 文本控制台（multi-user） |
-| `kde` | `matebook-e2019-archlive-7.3.4-kde.img.zst` / `.iso` | KDE Plasma，`sddm` 自动登录 `live` |
-| `gnome` | `matebook-e2019-archlive-7.3.4-gnome.img.zst` / `.iso` | GNOME，`gdm` 自动登录 `live` |
-| `xfce` | `matebook-e2019-archlive-7.3.4-xfce.img.zst` / `.iso` | XFCE，`lightdm` 自动登录 `live` |
+| `minimal` | `matebook-e2019-archlive-7.3.5.img.zst` / `.iso` | 文本控制台（multi-user） |
+| `kde` | `matebook-e2019-archlive-7.3.5-kde.img.zst` / `.iso` | KDE Plasma，`sddm` 自动登录 `live` |
+| `gnome` | `matebook-e2019-archlive-7.3.5-gnome.img.zst` / `.iso` | GNOME，`gdm` 自动登录 `live` |
+| `xfce` | `matebook-e2019-archlive-7.3.5-xfce.img.zst` / `.iso` | XFCE，`lightdm` 自动登录 `live` |
 
 四种介质都附带 `SHA256SUMS`、`BUILD-INFO*.txt`、`SOURCE-LOCK.env`、`DEVICE-PROFILE.env`、
-`packages*.txt`、`kernel.config`、`linux-source-7.3.4.tar.zst` 与 ISO El Torito 检查报告。
+`packages*.txt`、`kernel.config`、`linux-source-7.3.5.tar.zst` 与 ISO El Torito 检查报告。
 
 GUI 共享包位于 `configs/packages-gui-common.aarch64`，桌面专属包分别为
 `packages-kde.aarch64`、`packages-gnome.aarch64` 和 `packages-xfce.aarch64`。三种桌面都使用
@@ -124,7 +124,7 @@ AA64_EFI_PATH=.work/boot/BOOTAA64.EFI STRICT_TOOLS=1 bash scripts/validate.sh
 
 ```bash
 sha256sum --check SHA256SUMS
-zstd -dc matebook-e2019-archlive-7.3.4.img.zst \
+zstd -dc matebook-e2019-archlive-7.3.5.img.zst \
   | sudo dd of=/dev/sdX bs=16M status=progress conv=fsync
 sync
 ```

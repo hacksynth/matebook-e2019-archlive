@@ -53,7 +53,7 @@ fi
 
 [[ ${LINUX_COMMIT} =~ ^[0-9a-f]{40}$ ]] || fail 'LINUX_COMMIT 不是完整 SHA-1'
 [[ ${ALARM_BUILD_KEY_FINGERPRINT} =~ ^[0-9A-F]{40}$ ]] || fail 'ALARM 构建密钥不是完整指纹'
-[[ ${LINUX_REF} == v7.3.4 ]] || fail 'LINUX_REF 不是预期的稳定版 tag v7.3.4'
+[[ ${LINUX_REF} == v7.3.5 ]] || fail 'LINUX_REF 不是预期的稳定版 tag v7.3.5'
 [[ ${LINUX_MIRROR} == *git.kernel.org* ]] || fail '缺少 kernel.org 回退镜像'
 grep -Fq 'LINUX_MIRROR' "${REPO_ROOT}/scripts/fetch-sources.sh" || \
   fail 'fetch-sources 未实现内核镜像回退'
@@ -248,7 +248,7 @@ grep -Fq 'INSTALL_MOD_STRIP=1' "${REPO_ROOT}/scripts/build-kernel.sh" || \
 grep -Fq 'linux-firmware-qcom' "${CONFIG_DIR}/packages.aarch64" || \
   fail 'Live rootfs 缺少 linux-firmware-qcom'
 if grep -Fq 'EC_HUAWEI_PLANCK' "${CONFIG_DIR}/kernel.fragment"; then
-  fail 'stable 7.3.4 profile 不应再断言已移除的 6.16 Planck EC 驱动'
+  fail 'stable 7.3.5 profile 不应再断言已移除的 6.16 Planck EC 驱动'
 fi
 if grep -En 'zstd[^|]*--output' "${REPO_ROOT}/scripts/build.sh" \
     "${REPO_ROOT}/scripts/build-media.sh" >/dev/null 2>&1; then
@@ -300,7 +300,7 @@ grep -Fq 'bsdtar -cf -' "${REPO_ROOT}/scripts/build.sh" || fail '未生成完整
 grep -Fq "linux/arch/arm64/boot/dts/\${device_dts}" \
   "${REPO_ROOT}/scripts/build.sh" || fail '源码归档未检查目标设备树'
 if grep -Fq 'huawei-planck-ec.c' "${REPO_ROOT}/scripts/build.sh"; then
-  fail 'stable 7.3.4 构建不应再检查已移除的 Planck EC 源码'
+  fail 'stable 7.3.5 构建不应再检查已移除的 Planck EC 源码'
 fi
 grep -Fq 'DEVICE_MODEL="PAK-AL09"' "${CONFIG_DIR}/device.env" || \
   fail '设备配置不是当前 PAK-AL09 基线'
@@ -338,13 +338,15 @@ large_file="$(find "${REPO_ROOT}" \
   \( -path "${REPO_ROOT}/.git" -o -path "${REPO_ROOT}/.work" \
     -o -path "${REPO_ROOT}/.cache" -o -path "${REPO_ROOT}/.transfer" \
     -o -path "${REPO_ROOT}/out" \
+    -o -path "${REPO_ROOT}/analysis" \
     -o -path "${REPO_ROOT}/vendor-firmware" \) -prune -o \
   -type f -size +1M -print -quit)"
 [[ -z ${large_file} ]] || fail "仓库含大文件：${large_file}"
 artifact_file="$(find "${REPO_ROOT}" \
   \( -path "${REPO_ROOT}/.git" -o -path "${REPO_ROOT}/.work" \
     -o -path "${REPO_ROOT}/.cache" -o -path "${REPO_ROOT}/.transfer" \
-    -o -path "${REPO_ROOT}/out" \) -prune -o \
+    -o -path "${REPO_ROOT}/out" \
+    -o -path "${REPO_ROOT}/analysis" \) -prune -o \
   -type f \( -name '*.iso' -o -name '*.img' -o -name '*.img.zst' -o -name '*.dtb' -o -name '*.efi' \) \
   -print -quit)"
 [[ -z ${artifact_file} ]] || fail "仓库误提交构建产物：${artifact_file}"
