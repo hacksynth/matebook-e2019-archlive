@@ -1,6 +1,6 @@
 # HUAWEI MateBook E 2019（PAK-AL09）Arch Linux ARM Live 构建器
 
-> **实验性、非官方项目，可能无法启动。** 目标设备为 Snapdragon 850 / AArch64 的 HUAWEI MateBook E 2019（PAK-AL09）。显示、触控、键盘、存储、无线网络及休眠功能都需要在真机上验证；请勿把本项目作为唯一生产系统或恢复手段。
+> **实验性、非官方项目，可能无法启动。** 目标设备为 Snapdragon 850 / AArch64 的 HUAWEI MateBook E 2019（PAK-AL09）。当前已经完成一次真机检测，结果见下文；新增镜像仍应回归测试。请勿把本项目作为唯一生产系统或恢复手段。
 
 本项目在 Ubuntu x86_64 环境中交叉编译 Linux stable 内核，并基于 Arch Linux ARM Generic AArch64 rootfs 构建可启动的 Live 介质。当前配置使用 Linux stable **v7.3.5**，同时生成两个内核变体：
 
@@ -48,11 +48,80 @@ vendor-firmware/         PAK-AL09 专有 Qualcomm 固件及相关设备数据
 
 `configs/grub.cfg` 提供三个启动项：默认启动、禁用 QSEECom 排错，以及添加 `efi=novamap` 的 UEFI 排错。三个启动项都使用 dracut 的 `rd.live.ram=1`，在启动阶段把 SquashFS 根文件系统复制到 RAM；等待进入 Live 系统后即可拔掉 U 盘。该方式会额外占用约一份 SquashFS 大小的内存，目标设备的 8 GiB 内存应能满足要求，但启动会比直接从 U 盘读取更慢。`stock` 变体不含 Planck EC/UCSI 板级补丁，电池状态、EC 背光、合盖和部分 USB-C 功能可能不可用；`planck` 变体包含这些驱动，但仍需真机验证。
 
-WCN3990 Wi-Fi 已在 PAK-AL09 的持久 UFS 安装会话中验证可创建 `wlan0` 并扫描热点。Live 镜像使用相同链路：先禁止 udev 按设备别名过早加载驱动，再启动 `rmtfs`、`pd-mapper`、`tqftpserv` 和 MSS remoteproc，随后显式加载 `ath10k_snoc`，等待 `wlan0` 出现后才启动 NetworkManager。安装脚本优先使用 `linux-firmware-atheros` 的 WCN3990 `wlanmdsp.mbn`，仅在缺失时回退到设备目录中的 Windows 文件。发行版 `board-2.bin` 已包含 `Huawei_Planck` 校准项；Windows `bdwlan.*` 不能直接替代它。Live 中包含 `nmcli`/`nmtui`、`iw`、`rfkill`，三种桌面 flavor 都带网络管理面板。
+WCN3990 Wi-Fi 已在 PAK-AL09 的持久 UFS 安装会话中验证可创建 `wlan0` 并扫描热点。Live 镜像使用相同链路：先禁止 udev 按设备别名过早加载驱动，再启动 `rmtfs`、`pd-mapper`、`tqftpserv` 和 MSS remoteproc，随后显式加载 `ath10k_snoc`，等待 `wlan0` 出现后才启动 NetworkManager。安装脚本默认使用经过真机验证的旧版 `wlanmdsp.mbn`，可选择性地通过 `WCN3990_FIRMWARE_CHANNEL=shikra-experimental` 构建上游 `WLAN.HL.3.3.7.c5-00226` 配对固件；该实验版本会校验提交和 SHA-256，但在 PAK-AL09 冷启动时出现 `wlan_process` grace timer 超时，因此不能作为默认构建。发行版 `board-2.bin` 已包含 `Huawei_Planck` 校准项；Windows `bdwlan.*` 不能直接替代它。Live 中包含 `nmcli`/`nmtui`、`iw`、`rfkill`，三种桌面 flavor 都带网络管理面板。
 
 同一 WCN3990 的蓝牙控制器在 PAK-AL09 上可能报告全零 BD_ADDR。Live 会由 `planck-bt-address.service` 根据 `/etc/machine-id` 生成本地管理蓝牙地址，使 BlueZ 完成控制器配置；系统同时显式安装 `bluez` 和 `bluez-utils`。
 
 持久安装的 initramfs 必须在根分区切换前找到 ADSP/CDSP/SLPI 固件；`configs/dracut-qcom-firmware.conf` 列出了需要携带的设备固件。当前 RTC 驱动不能写回硬件时钟，系统时间应在联网后由 NTP 客户端校正。
+
+## 真机检测状态（2026-11-18）
+
+以下结果来自一次在 PAK-AL09 上启动 GNOME Live 镜像后的只读检测。测试内核为
+Linux `7.3.5-g988117cc1bb1-dirty`，运行环境包含 Planck EC、电池和 UCSI 驱动。
+本次没有接入充电器、外接显示器或物理键盘盖，因此未测试的功能不会据此推断为不可用。
+该记录描述的是当前镜像和当前运行会话，不能替代后续构建的回归测试。
+
+### 已验证可用
+
+| 功能 | 检测结果 |
+|---|---|
+| CPU 与内存 | 8 个 CPU 核心在线，约 7.3 GiB 内存可用 |
+| 内屏与桌面 | `card0-eDP-1` 已连接，模式为 `2160x1440`；GNOME Wayland 正常启动 |
+| GPU 渲染 | Adreno 630 固件加载成功；Mutter 使用 `/dev/dri/card0` 和硬件 EGL 上下文 |
+| 背光与合盖 | EC 背光和 eDP AUX 背光节点存在，EC Lid 输入设备已注册 |
+| 触控与手写笔 | Goodix GT7380 被识别为内部触控屏，独立 Stylus 输入设备存在 |
+| 按键与耳机检测 | 电源键、音量键和耳机插孔输入设备已注册 |
+| UFS | 内部 UFS 及其 Windows NTFS 分区正常枚举，识别容量约 232.7 GiB |
+| SD 卡 | 约 58.2 GiB exFAT SD 卡可挂载 |
+| USB-C 主机模式 | Type-C 端口当前为 data-role host，可枚举 USB 设备 |
+| 电池与温度 | Planck EC 电池状态可用；22 个热区均可读取且温度合理 |
+| 蓝牙 | WCN3990 蓝牙控制器启动成功，实际扫描到附近 BLE 设备 |
+| 视频编解码 | Venus 编码器提供 H.264、VP8、HEVC 接口，解码器提供 NV12 等格式接口 |
+
+`/dev/video0` 和 `/dev/video1` 是 Venus 编解码设备，不代表摄像头已经可用。
+
+### 部分可用或存在故障
+
+| 功能 | 当前状态 |
+|---|---|
+| Wi-Fi | WCN3990 可连接热点、访问 HTTPS；但日志记录到两次 `ath10k_snoc` 固件崩溃并恢复，本次测试链路对公网 ICMP 约有 30% 丢包，稳定性不足 |
+| 音频 | WCD9340、SDM845 声卡和 DSP 驱动已加载，但 PipeWire 仅暴露 `Dummy Output`；切换到 Pro Audio profile 后仍没有扬声器、耳机或麦克风节点，缺少可用 UCM/路由配置 |
+| CPU 调频 | `qcom-cpufreq-hw` 注册失败，未生成 cpufreq policy；Linux 侧动态频率调节不可用 |
+| 蜂窝网络 | 基带可由 QMI 查询，但当前处于关机模式，SIM 报 `no-atr-received` 且未注册网络；运行日志还提示缺少 MCFG 配置数据 |
+| USB 以太网 | `r8152` 和 `cdc_ether` 驱动已包含；日志提示缺少 `rtl_nic/rtl8153b-2.fw`，部分 RTL8153B 网卡可能工作不稳定 |
+
+### 没有驱动或尚未实现
+
+| 硬件 | 当前状态 |
+|---|---|
+| 前后摄像头 | 设备树记录了 Samsung S5K3L6、GalaxyCore GC5025 和 CN3927E 对焦马达，但传感器节点仍为注释状态；系统没有 Media Controller 或摄像头 V4L2 设备 |
+| 指纹识别 | ACPI 声明 ELAN7002/GXFP61A2 指纹模块，但当前没有对应 SPI 设备、`spidev` 或指纹驱动 |
+| 方向与运动传感器 | IIO 中只有 PMIC ADC，没有加速度计、陀螺仪或方向传感器节点，自动旋转不可用 |
+| 物理键盘与触控板 | 当前输入设备中未发现普通物理键盘或触控板；本次测试时键盘盖未连接，因此不能据此判断蓝牙或底座驱动是否可用 |
+
+### 尚未验证
+
+- 合盖进入 sleep 以及 `s2idle` 的唤醒路径；本次为避免中断 SSH 会话，没有触发休眠。
+- USB-C 充电与 USB-PD 协商；本次测试时没有接入充电器，启动日志曾出现一次 UCSI 线缆属性查询超时。
+- USB-C DisplayPort Alt Mode 外接显示；本次没有连接显示器或转换器。
+- 蓝牙设备配对、A2DP 音频和 BLE 数据传输；本次只验证了控制器启动与扫描。
+- 物理触摸、手写笔压感、亮度热键以及合盖事件的交互结果；本次只验证了设备注册。
+
+最小复测入口：
+
+```bash
+uname -a
+tr -d '\0' </proc/device-tree/model
+lsblk -o NAME,SIZE,TYPE,FSTYPE,MOUNTPOINTS,MODEL
+for d in /sys/class/drm/card*/status; do cat "$d"; done
+wpctl status
+bluetoothctl show
+v4l2-ctl --list-devices
+for z in /sys/class/thermal/thermal_zone*; do
+  printf '%s %s\n' "$(cat "$z/type")" "$(cat "$z/temp")"
+done
+sudo dmesg -T --level=err,warn
+```
 
 ## 来源锁定与验证
 
@@ -148,7 +217,7 @@ sync
 
 ## 已知风险与许可
 
-- 本项目处于实验阶段，显示、触控、键盘、存储、Wi-Fi、蓝牙和休眠均需在 PAK-AL09 真机验证；
+- 本项目处于实验阶段；当前真机检测已确认部分功能，但显示、输入、无线、音频、休眠等仍需按构建版本持续回归；
 - 上游 ALARM 滚动软件包、dracut、GRUB AA64 与 qemu-user-static 可能发生接口变化；
 - 构建并不自动代表介质已经过真机启动测试。
 

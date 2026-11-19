@@ -174,6 +174,15 @@ for setting in CONFIG_CFG80211=m CONFIG_MAC80211=m CONFIG_ATH10K=m CONFIG_ATH10K
   grep -Fq "'${setting}'" "${REPO_ROOT}/scripts/build-kernel.sh" || \
     fail "build-kernel does not assert WCN3990 dependency: ${setting}"
 done
+for setting in CONFIG_UHID=m CONFIG_INPUT_UINPUT=m CONFIG_INPUT_JOYDEV=m \
+  CONFIG_INPUT_JOYSTICK=y \
+  CONFIG_HID_MICROSOFT=m CONFIG_HID_PLAYSTATION=m CONFIG_HID_NINTENDO=m \
+  CONFIG_JOYSTICK_XPAD=m; do
+  grep -Fxq "${setting}" "${CONFIG_DIR}/kernel.fragment" || \
+    fail "kernel fragment missing controller input dependency: ${setting}"
+  grep -Fq "'${setting}'" "${REPO_ROOT}/scripts/build-kernel.sh" || \
+    fail "build-kernel does not assert controller input dependency: ${setting}"
+done
 for setting in CONFIG_USB_NET_RNDIS_HOST=m CONFIG_ATH10K_DEBUG=y CONFIG_ATH10K_DEBUGFS=y CONFIG_DYNAMIC_DEBUG=y; do
   grep -Fxq "${setting}" "${CONFIG_DIR}/kernel.fragment" || \
     fail "kernel fragment missing debug/RNDIS option: ${setting}"
@@ -231,12 +240,27 @@ grep -Fq 'rmtfs-git' "${REPO_ROOT}/scripts/install-qualcomm-wifi-services.sh" ||
 grep -Fq 'wlanmdsp.mbn' \
   "${REPO_ROOT}/scripts/install-qualcomm-wifi-services.sh" || \
   fail 'Qualcomm Wi-Fi installer does not map WCN3990 firmware'
-grep -Fq 'install -m 0644 "${wlanmdsp_source}" "${wlanmdsp_target}"' \
+grep -Fq 'WCN3990_FIRMWARE_CHANNEL="${WCN3990_FIRMWARE_CHANNEL:-legacy}"' \
   "${REPO_ROOT}/scripts/install-qualcomm-wifi-services.sh" || \
-  fail 'Qualcomm Wi-Fi installer does not copy a usable wlanmdsp'
-grep -Fq 'ath10k/WCN3990/hw1.0/board-2.bin' \
+  fail 'Qualcomm Wi-Fi installer does not default to the known-good firmware channel'
+grep -Fq 'WCN3990_FIRMWARE_COMMIT="72f3b81c89fbc52677b9dbbfa92cde0ae00a36e2"' \
+  "${REPO_ROOT}/scripts/install-qualcomm-wifi-services.sh" || \
+  fail 'Qualcomm Wi-Fi installer does not pin the experimental WCN3990 firmware commit'
+grep -Fq 'WCN3990_WLANMDSP_SHA256="ea1787533f969c084c24292defdcc88d75d71955bea7e12ffee2b5fb16248350"' \
+  "${REPO_ROOT}/scripts/install-qualcomm-wifi-services.sh" || \
+  fail 'Qualcomm Wi-Fi installer does not verify the experimental WCN3990 DSP firmware'
+grep -Fq 'WCN3990_FIRMWARE_API_SHA256="7f35f16380124ceff31a4c3064fb6f66b366ccd76b517b271a53e4c9029fe41b"' \
+  "${REPO_ROOT}/scripts/install-qualcomm-wifi-services.sh" || \
+  fail 'Qualcomm Wi-Fi installer does not verify the experimental WCN3990 API firmware'
+grep -Fq 'shikra-experimental)' \
+  "${REPO_ROOT}/scripts/install-qualcomm-wifi-services.sh" || \
+  fail 'Qualcomm Wi-Fi installer does not expose the experimental firmware channel'
+grep -Fq '${wcn3990_firmware_dir}/board-2.bin' \
   "${REPO_ROOT}/scripts/install-qualcomm-wifi-services.sh" || \
   fail 'Qualcomm Wi-Fi installer does not verify board-2.bin'
+grep -Fq 'WLAN.HL.3.3.7.c5-00226' \
+  "${REPO_ROOT}/scripts/install-qualcomm-wifi-services.sh" || \
+  fail 'Qualcomm Wi-Fi installer does not document the experimental WCN3990 firmware revision'
 for wifi_package in bluez bluez-utils iw rfkill networkmanager wpa_supplicant; do
   grep -Fxq "${wifi_package}" "${CONFIG_DIR}/packages.aarch64" || \
     fail "Live rootfs 缺少 Wi-Fi 软件包：${wifi_package}"
@@ -362,6 +386,7 @@ large_file="$(find "${REPO_ROOT}" \
   \( -path "${REPO_ROOT}/.git" -o -path "${REPO_ROOT}/.work" \
     -o -path "${REPO_ROOT}/.cache" -o -path "${REPO_ROOT}/.transfer" \
     -o -path "${REPO_ROOT}/out" \
+    -o -path "${REPO_ROOT}/downloads" \
     -o -path "${REPO_ROOT}/analysis" \
     -o -path "${REPO_ROOT}/vendor-firmware" \) -prune -o \
   -type f -size +1M -print -quit)"
@@ -370,6 +395,7 @@ artifact_file="$(find "${REPO_ROOT}" \
   \( -path "${REPO_ROOT}/.git" -o -path "${REPO_ROOT}/.work" \
     -o -path "${REPO_ROOT}/.cache" -o -path "${REPO_ROOT}/.transfer" \
     -o -path "${REPO_ROOT}/out" \
+    -o -path "${REPO_ROOT}/downloads" \
     -o -path "${REPO_ROOT}/analysis" \) -prune -o \
   -type f \( -name '*.iso' -o -name '*.img' -o -name '*.img.zst' -o -name '*.dtb' -o -name '*.efi' \) \
   -print -quit)"
